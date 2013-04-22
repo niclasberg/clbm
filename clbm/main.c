@@ -31,8 +31,8 @@ void print_info(FlowParams * params, FsiParams * fsi_params)
 	double conf = (fsi_params->a / (NY/2));
 	double Re_p = Re * conf * conf;
 	double St = fsi_params->rho / params->rho * Re_p;
-	printf("Channel Re = %f\n", Re);
-	printf("Particle Re = %f\n", Re_p);
+	printf("Re_d = %f\n", Re);
+	printf("Re_p = %f\n", Re_p);
 	printf("St = %f\n", St);
 }
 
