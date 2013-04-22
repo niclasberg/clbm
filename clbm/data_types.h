@@ -3,7 +3,8 @@
 #include "macros.h"
 
 typedef struct {
-	double f, tau, u_max, rho, lx, ly;
+	double f, tau, u_max, rho;
+	unsigned int lx, ly;
 } FlowParams;
 
 typedef struct {

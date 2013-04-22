@@ -12,26 +12,17 @@
 #include "input.h"
 #include <time.h>
 
+FILE * output_file;
+
 void init_flow(FlowParams *, FlowState *);
 void destroy_flow(FlowState *);
 void post_process(unsigned int, FlowParams *, FlowState *, ParticleState *);
 void swap_states(LbmState *);
-
-void print_info(FlowParams * params, FsiParams * fsi_params)
-{
-	double visc = (1.0/3.0) * (params->tau - 0.5);
-	double Re = params->u_max * (params->ly/2) / visc;
-	double conf = (fsi_params->a / (params->ly/2));
-	double Re_p = Re * conf * conf;
-	double St = fsi_params->rho / params->rho * Re_p;
-	printf("Re_d = %f\n", Re);
-	printf("Re_p = %f\n", Re_p);
-	printf("St = %f\n", St);
-}
+void print_info(FlowParams *, FsiParams *);
 
 int main(int argc, char ** argv)
 {
-	unsigned int Nt = 100000, it, output_step = 1000;
+	unsigned int Nt = 400, it, output_step = 1000;
 	clock_t start, end;
 	FlowParams flow_params;
 	FsiParams fsi_params;
@@ -39,14 +30,15 @@ int main(int argc, char ** argv)
 	ParticleState particle_state;
 	LbmState lbm_state;
 
-	// Set physical parameters
+	// Read simulation parameters
 	parse_input(argc, argv, &flow_params, &fsi_params);
 
 	// Print info
 	print_info(&flow_params, &fsi_params);
 
 	// Setup plotting engine
-	init_plot();
+	//init_plot();
+	output_file = fopen("output.txt", "w");
 
 	// Initialize structs
 	fsi_init_state(&fsi_params, &particle_state);
@@ -69,7 +61,7 @@ int main(int argc, char ** argv)
 		// Solve the fsi problem
 		fsi_run(&flow_state, &particle_state);
 
-		// Solve the flow problm
+		// Solve the flow problem
 		lbm_run(&flow_state, &lbm_state);
 
 		// Post process the result
@@ -80,45 +72,65 @@ int main(int argc, char ** argv)
 	}
 
 	// Clean up
+	fclose(output_file);
 	fsi_destroy_state(&particle_state);
 	lbm_destroy_state(&lbm_state);
 	destroy_flow(&flow_state);
-	destroy_plot();
+	//destroy_plot();
 
 	return 0;
+}
+
+void print_info(FlowParams * flow_params, FsiParams * fsi_params)
+{
+	double visc = (1.0/3.0) * (flow_params->tau - 0.5);
+	double Re = flow_params->u_max * (flow_params->ly/2) / visc;
+	double conf = (fsi_params->a / (flow_params->ly/2));
+	double Re_p = Re * conf * conf;
+	double St = fsi_params->rho / flow_params->rho * Re_p;
+	printf("Domain dimensions = %d x %d\n", flow_params->lx, flow_params->ly);
+	printf("Re_d = %f\n", Re);
+	printf("Re_p = %f\n", Re_p);
+	printf("St = %f\n", St);
+	printf("Particle major axis length = %f\n", fsi_params->a);
+	printf("Particle minor axis length = %f\n", fsi_params->b);
 }
 
 void init_flow(FlowParams * f_params, FlowState * f_state)
 {
 	unsigned int i, j, k, nx, ny, idx;
 
-	// Macroscopic initial conditions
+	// Domain dimensions
 	nx = f_params->lx;
 	ny = f_params->ly;
-
-	f_state->u_ref = f_params->u_max;
 	f_state->lx = nx;
 	f_state->ly = ny;
+
+	// Physical parameters
+	f_state->u_ref = f_params->u_max;
+	f_state->tau = f_params->tau;
+
+	// Solution arrays
 	f_state->force[0] = (double *) malloc(nx * ny * sizeof(double));
 	f_state->force[1] = (double *) malloc(nx * ny * sizeof(double));
 	f_state->u[0] = (double *) malloc(nx * ny * sizeof(double));
 	f_state->u[1] = (double *) malloc(nx * ny * sizeof(double));
 	f_state->rho = (double *) malloc(nx * ny * sizeof(double));
+
+	// Boundary condition arrays
 	f_state->macro_bc = (int *) malloc(nx * ny * sizeof(int));
 	f_state->micro_bc = (int *) malloc(nx * ny * sizeof(int));
 	f_state->is_corner = (int *) malloc(nx * ny * sizeof(int));
-	f_state->tau = f_params->tau;
 
 	// Initialize arrays
 	for(i = 0; i < nx; ++i) {
 		for(j=0; j < ny; ++j) {
 			idx = i*ny + j;
 
-			f_state->u[0][idx] = 0;
-			f_state->u[1][idx] = 0;
-
-			for(k = 0; k < DIM; ++k)
+			for(k = 0; k < DIM; ++k) {
 				f_state->force[k][idx] = 0;
+				f_state->u[k][idx] = 0;
+			}
 
 			f_state->rho[idx] = f_params->rho;
 			f_state->macro_bc[idx] = 0;
@@ -152,11 +164,16 @@ void destroy_flow(FlowState * f_state)
 
 void post_process(unsigned int it, FlowParams * f_params, FlowState * f_state, ParticleState * p_state)
 {
-	if((it % 1000) == 0) {
+	/*if((it % 400) == 0) {
 		PlotOptions plot_opts;
 		plot_opts.min_val = -f_params->u_max;
 		plot_opts.max_val = f_params->u_max;
 		imagesc(f_state->lx, f_state->ly, f_state->u[0], &plot_opts);
+	}*/
+
+	if((it % 400) == 0) {
+		fprintf(output_file, "%d\t%f\t%f\n", it, p_state->angle, p_state->ang_vel);
+		fflush(output_file);
 	}
 }
 

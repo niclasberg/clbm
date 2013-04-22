@@ -20,8 +20,6 @@ void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 	p_state->inertia = params->rho * PI * params->a * params->b *
 						(pow2(params->a) + pow2(params->b)) * 4.0 / 15.0;
 
-	printf("Inertia: %f\n", p_state->inertia);
-
 	// Copy center point
 	p_state->coord_c[0] = params->coord_c[0];
 	p_state->coord_c[1] = params->coord_c[1];
@@ -48,8 +46,6 @@ void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 	generate_particle_volume(p_state);
 	rotate_particle(p_state);
 	print_particle(p_state);
-
-	printf("Fsi module loaded\n");
 }
 
 void generate_particle_initial(FsiParams * params, ParticleState * p_state)
@@ -119,7 +115,6 @@ void generate_particle_volume(ParticleState * p_state) {
 	double ram, rap, hpn, area;
 	unsigned int i, i_prev, i_next;
 
-	printf("Node volumes:\n");
 	for(i = 0; i < p_state->nodes; ++i) {
 		i_prev = (i == 0) 					? p_state->nodes-1 	: i-1;
 		i_next = (i == (p_state->nodes-1)) 	? 0 				: i+1;
@@ -131,8 +126,6 @@ void generate_particle_volume(ParticleState * p_state) {
 		hpn = 0.5 * (ram + rap);
 		area = hpn * hpn;
 		p_state->volume[i] = area * sqrt(area);
-
-		printf("%d => %f\n", i, p_state->volume[i]);
 	}
 }
 
@@ -145,17 +138,15 @@ void print_particle(ParticleState * p_state)
 	fclose(file);
 }
 
-void fsi_print_info()
+void fsi_print_info(ParticleState * p_state)
 {
-	printf("Parameters:\n");
-	//printf("Nodes=%d \n inertia=%e \n", nodes, params->a, params->b, params->rho, params->inertia);
+	printf("Fsi parameters:\n");
+	printf("Nodes: %d\n", p_state->nodes);
+	printf("Inertia: %f\n", p_state->inertia);
+	printf("Particle length: %f\n", p_state->width);
+	printf("Particle volume (first node): %f\n", p_state->volume[0]);
 }
 
-/*
- * fsi_destroy()
- * 	Free's all the memory allocated by fsi_init(), should always be called
- * 	after the usage of the fsi module is complete to avoid memory leaks.
- */
 void fsi_destroy_state(ParticleState * p_state)
 {
 	unsigned int dim_it;
@@ -169,13 +160,6 @@ void fsi_destroy_state(ParticleState * p_state)
 	free(p_state->volume);
 }
 
-
-/*
- * fsi_run(float * rho, float * ux, float * uy, float * gx, float * gy)
- * 	Given a flow state, this method evaluates the torque on the
- * 	particle and rotates it accordingly, for the duration
- * 	of one timestep. The resulting force on the fluid (gx, gy) is also computed.
- */
 void fsi_run(FlowState * f_state, ParticleState * p_state) {
 	unsigned int i, j, np, idx, i_min, i_max, j_min, j_max;
 	double torque, temp_x, temp_y, dir, dx, dy,

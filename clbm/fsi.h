@@ -7,7 +7,7 @@
 void fsi_destroy_state(ParticleState *);
 void fsi_init_state(FsiParams *, ParticleState *);
 void fsi_run(FlowState *, ParticleState *);
-void fsi_print_info();
+void fsi_print_info(ParticleState *);
 
 // Implementation methods
 static void generate_particle_volume(ParticleState *);
