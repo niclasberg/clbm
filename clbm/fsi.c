@@ -9,7 +9,7 @@
  * 	intializes the ParticleState struct from the parameters defined in
  * 	params
  */
-void fsi_init(FsiParams * params, ParticleState * p_state) {
+void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 	unsigned int dim_it, k;
 
 	// initial condition

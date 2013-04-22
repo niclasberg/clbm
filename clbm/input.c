@@ -1,0 +1,94 @@
+#include "input.h"
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * fsi_params)
+{
+	// Default parameters
+	InputParameters params;
+	params.p_length = 12;
+	params.kb = 2;
+	params.St = 10;
+	params.freq = 0.1;
+	params.Re_p = 1;
+	params.u_max = 0.01;
+	params.lx = 100;
+	params.ly = 100;
+	params.nodes = 50;
+
+	if(argc > 1 && strlen(argv[1]) > 0)
+		read_input_file(argv[1], &params);
+
+	// Compute resulting parameters
+	// Flow parameters
+	double G = 2.0 * (double) params.u_max / ((double) params.ly);
+	double Re = pow((params.ly/2) / params.p_length, 2) * params.Re_p;
+	double visc = params.u_max * params.ly/2 / Re;
+	flow_params->tau = 3*visc + 0.5;
+	flow_params->lx = params.lx;
+	flow_params->ly = params.ly;
+	flow_params->rho = 1;
+	flow_params->f = G * params.freq;
+	flow_params->u_max = params.u_max;
+
+	// Fsi parameters
+	fsi_params->a = params.p_length;
+	fsi_params->b = params.p_length / params.kb;
+	fsi_params->rho = flow_params->rho * params.St / params.Re_p;
+	fsi_params->nodes = params.nodes;
+	fsi_params->coord_c[0] = params.lx / 2.0 - 0.5;
+	fsi_params->coord_c[1] = params.ly / 2.0 - 0.5;
+	fsi_params->init_angle = params.init_angle;
+	fsi_params->init_ang_vel = params.init_ang_vel;
+}
+
+void read_input_file(char * file_name, InputParameters * params)
+{
+	FILE * handle = fopen(file_name, "r");
+	if(handle == NULL) {
+		fprintf(stderr, "Could not open file %s!\n", file_name);
+		exit(1);
+	}
+
+	printf("Reading input from %s\n", file_name);
+
+	char line[256];
+	char * key, * value;
+	char * search = "\t ";
+
+	while(fgets(line, sizeof(line), handle) != NULL) {
+		// Read key
+		key = strtok(line, search);
+		value = strtok(NULL, search);
+
+		if(strcmp(key, "Re_p"))
+			params->Re_p = strtod(value, NULL);
+		else if(strcmp(key, "p_length"))
+			params->p_length = strtod(value, NULL);
+		else if(strcmp(key, "kb"))
+			params->kb = strtod(value, NULL);
+		else if(strcmp(key, "St"))
+			params->St = strtod(value, NULL);
+		else if(strcmp(key, "freq"))
+			params->freq = strtod(value, NULL);
+		else if(strcmp(key, "umax"))
+			params->u_max = strtod(value, NULL);
+		else if(strcmp(key, "freq"))
+			params->freq = strtod(value, NULL);
+		else if(strcmp(key, "lx"))
+			params->lx = atoi(value);
+		else if(strcmp(key, "ly"))
+			params->ly = atoi(value);
+		else if(strcmp(key, "nodes"))
+			params->nodes = atoi(value);
+		else {
+			fprintf(stderr, "Unknown key %s in file %s\n", key, file_name);
+		}
+	}
+
+
+
+	fclose(handle);
+}

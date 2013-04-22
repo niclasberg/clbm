@@ -3,15 +3,9 @@
 #include "data_types.h"
 #include "macros.h"
 
-typedef struct {
-	double a, b, rho, init_angle, init_ang_vel;
-	double coord_c[DIM];
-	unsigned int nodes;
-} FsiParams;
-
 // Public methods
 void fsi_destroy(ParticleState *);
-void fsi_init(FsiParams *, ParticleState *);
+void fsi_init_state(FsiParams *, ParticleState *);
 void fsi_run(FlowState *, ParticleState *);
 void fsi_print_info();
 

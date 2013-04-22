@@ -10,7 +10,7 @@
  * Public methods
  */
 
-void lbm_init(FlowState * f_state, LbmState * lbm_state)
+void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i, j, k, idx;
 	double ux0, uy0, rho0;
@@ -37,7 +37,7 @@ void lbm_init(FlowState * f_state, LbmState * lbm_state)
 	}
 }
 
-void lbm_destroy(LbmState * lbm_state)
+void lbm_destroy_state(LbmState * lbm_state)
 {
 	unsigned int i;
 	for(i = 0; i < Q; ++i) {

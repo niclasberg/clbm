@@ -3,6 +3,16 @@
 #include "macros.h"
 
 typedef struct {
+	double f, tau, u_max, rho, lx, ly;
+} FlowParams;
+
+typedef struct {
+	double a, b, rho, init_angle, init_ang_vel;
+	double coord_c[DIM];
+	unsigned int nodes;
+} FsiParams;
+
+typedef struct {
 	double * f[Q], * f_next[Q];
 } LbmState;
 

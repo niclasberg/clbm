@@ -2,13 +2,9 @@
 #define CLBM_H_
 #include "data_types.h"
 
-typedef struct {
-	double f, tau, u_max, rho;
-} FlowParams;
-
-void lbm_init(FlowState *, LbmState *);
+void lbm_init_state(FlowState *, LbmState *);
 void lbm_run(FlowState *, LbmState *);
-void lbm_destroy();
+void lbm_destroy_state();
 void lbm_lattice_info();
 void lbm_print_info();
 
