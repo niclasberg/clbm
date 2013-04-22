@@ -22,7 +22,7 @@ void print_info(FlowParams *, FsiParams *);
 
 int main(int argc, char ** argv)
 {
-	unsigned int Nt = 400, it, output_step = 1000;
+	unsigned int Nt = 4000000, it, output_step = 1000;
 	clock_t start, end;
 	FlowParams flow_params;
 	FsiParams fsi_params;
