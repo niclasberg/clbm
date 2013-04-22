@@ -6,12 +6,12 @@
 
 int bc_zou_he_east = 1, bc_zou_he_north = 2, bc_zou_he_west = 3, bc_zou_he_south = 4,
 	bc_zou_he_north_east = 5, bc_zou_he_north_west = 6, bc_zou_he_south_west = 7, bc_zou_he_south_east = 8,
-	bc_regularized_east = 9, bc_regularized_north = 10, bc_regularized_west = 11, bc_regularized_south = 12,
-	bc_diffusive_east = 13, bc_diffusive_north = 14, bc_diffusive_west = 15, bc_diffusive_south = 16;
+	bc_regularized_east = 9, bc_regularized_north = 10, bc_regularized_west = 11, bc_regularized_south = 12/*,
+	bc_diffusive_east = 13, bc_diffusive_north = 14, bc_diffusive_west = 15, bc_diffusive_south = 16*/;
 
 int INIT_DIFFUSIVE = 1, INIT_ZOU_HE = 2, INIT_REGULARIZED = 4;
 
-unsigned int nx, ny;
+/*unsigned int nx, ny;
 double * f_prev[Q];
 
 void bc_init(int types, LbmState * lbm_state, unsigned int lx, unsigned int ly)
@@ -38,7 +38,7 @@ void bc_destroy()
 			free(f_prev[k]);
 		}
 	}
-}
+}*/
 
 void micro_bc(Node * node, unsigned int type)
 {
@@ -66,10 +66,10 @@ void micro_bc(Node * node, unsigned int type)
 		bc_regularized_straight(node->f, node->rho, node->u[0], node->u[1], 2);
 	else if(type == bc_regularized_south)
 		bc_regularized_straight(node->f, node->rho, node->u[0], node->u[1], 3);
-	else if(type == bc_diffusive_north)
+	/*else if(type == bc_diffusive_north)
 		diffusive_north(node);
 	else if(type == bc_diffusive_south)
-		diffusive_south(node);
+		diffusive_south(node);*/
 	else
 		printf("Unknown micro_bc type: %d\n", type);
 }
@@ -204,7 +204,7 @@ void bc_regularized_straight(double * f, double rho, double u, double v, int dir
 /*
  * Diffusive Bcs
  */
-void diffusive_south(Node * node)
+/*void diffusive_south(Node * node)
 {
 	unsigned int idx = node->coord[0] * ny + node->coord[1];
 	double L;
@@ -244,4 +244,4 @@ void diffusive_north(Node * node)
 	f_prev[2][idx] = node->f[2];
 	f_prev[5][idx] = node->f[5];
 	f_prev[6][idx] = node->f[6];
-}
+}*/

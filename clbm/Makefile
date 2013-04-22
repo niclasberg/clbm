@@ -1,6 +1,6 @@
 #Compiler stuff
 CC := gcc
-FLAGS := -lm -g -pg
+FLAGS := -lm -g
 
 SRC := clbm.c main.c gnuplot_i.c plot.c micro_bc.c fsi.c lattice.c macro_bc.c input.c
 OBJ := $(SRC:.c=.o)

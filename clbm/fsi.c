@@ -156,9 +156,17 @@ void fsi_print_info()
  * 	Free's all the memory allocated by fsi_init(), should always be called
  * 	after the usage of the fsi module is complete to avoid memory leaks.
  */
-void fsi_destroy(ParticleState * p_state)
+void fsi_destroy_state(ParticleState * p_state)
 {
+	unsigned int dim_it;
+	for(dim_it = 0; dim_it < DIM; ++dim_it) {
+		free(p_state->force_fsi[dim_it]);
+		free(p_state->coord_p[dim_it]);
+		free(p_state->coord_a[dim_it]);
+	}
 
+	// Scalar quantities
+	free(p_state->volume);
 }
 
 

@@ -9,10 +9,12 @@
 #include "fsi.h"
 #include "macros.h"
 #include "data_types.h"
+#include "input.h"
 #include <time.h>
 
 void init_flow(FlowParams *, FlowState *);
-void post_process(unsigned int, FlowState *, ParticleState *);
+void destroy_flow(FlowState *);
+void post_process(unsigned int, FlowParams *, FlowState *, ParticleState *);
 void swap_states(LbmState *);
 
 void print_info(FlowParams * params, FsiParams * fsi_params)
@@ -29,7 +31,7 @@ void print_info(FlowParams * params, FsiParams * fsi_params)
 
 int main(int argc, char ** argv)
 {
-	unsigned int Nt = 10000, it, output_step = 1000;
+	unsigned int Nt = 100000, it, output_step = 1000;
 	clock_t start, end;
 	FlowParams flow_params;
 	FsiParams fsi_params;
@@ -47,10 +49,9 @@ int main(int argc, char ** argv)
 	init_plot();
 
 	// Initialize structs
-	init_flow(&flow_params, &flow_state);
 	fsi_init_state(&fsi_params, &particle_state);
+	init_flow(&flow_params, &flow_state);
 	lbm_init_state(&flow_state, &lbm_state);
-	//bc_init(INIT_DIFFUSIVE, &lbm_state, NX, NY);
 
 	start = clock();
 
@@ -72,15 +73,16 @@ int main(int argc, char ** argv)
 		lbm_run(&flow_state, &lbm_state);
 
 		// Post process the result
-		//post_process(it, &flow_state, &particle_state);
+		post_process(it, &flow_params, &flow_state, &particle_state);
 
 		// Swap the f_next and f array in the LbmState struct
 		swap_states(&lbm_state);
 	}
 
 	// Clean up
-	fsi_destroy(&particle_state);
+	fsi_destroy_state(&particle_state);
 	lbm_destroy_state(&lbm_state);
+	destroy_flow(&flow_state);
 	destroy_plot();
 
 	return 0;
@@ -135,12 +137,25 @@ void init_flow(FlowParams * f_params, FlowState * f_state)
 	}
 }
 
-void post_process(unsigned int it, FlowState * f_state, ParticleState * p_state)
+void destroy_flow(FlowState * f_state)
+{
+	unsigned int k;
+	for(k = 0; k < DIM; ++k) {
+		free(f_state->force[k]);
+		free(f_state->u[k]);
+	}
+	free(f_state->rho);
+	free(f_state->macro_bc);
+	free(f_state->micro_bc);
+	free(f_state->is_corner);
+}
+
+void post_process(unsigned int it, FlowParams * f_params, FlowState * f_state, ParticleState * p_state)
 {
 	if((it % 1000) == 0) {
 		PlotOptions plot_opts;
-		plot_opts.min_val = -f_state->u_ref;
-		plot_opts.max_val = f_state->u_ref;
+		plot_opts.min_val = -f_params->u_max;
+		plot_opts.max_val = f_params->u_max;
 		imagesc(f_state->lx, f_state->ly, f_state->u[0], &plot_opts);
 	}
 }

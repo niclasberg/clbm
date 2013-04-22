@@ -68,23 +68,6 @@ void lbm_run(FlowState * f_state, LbmState * lbm_state)
 	stream(f_state, lbm_state);
 	hydrovar(f_state, lbm_state);
 	implement_bcs(f_state, lbm_state);
-
-	// Sanity check
-	/*unsigned int i, j, k, idx;
-	for(i = 0; i < f_state->lx; ++i) {
-		for(j = 0; j < f_state->ly; ++j) {
-			idx = i * f_state->ly + j;
-			f_state->rho[idx] = 0;
-			f_state->u[0][idx] = 0;
-			f_state->u[1][idx] = 0;
-
-			for(k = 0; k < Q; ++k) {
-				f_state->u[0][idx] += cx[k] * lbm_state->f_next[k][idx];
-				f_state->u[1][idx] += cy[k] * lbm_state->f_next[k][idx];
-				f_state->rho[idx] += lbm_state->f_next[k][idx];
-			}
-		}
-	}*/
 }
 
 /*
