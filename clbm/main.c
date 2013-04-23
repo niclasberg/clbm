@@ -172,7 +172,7 @@ void post_process(unsigned int it, FlowParams * f_params, FlowState * f_state, P
 	}*/
 
 	if((it % 400) == 0) {
-		fprintf(output_file, "%d\t%f\t%f\n", it, p_state->angle, p_state->ang_vel);
+		fprintf(output_file, "%d\t%.14g\t%.14g\n", it, p_state->angle, p_state->ang_vel);
 		fflush(output_file);
 	}
 }

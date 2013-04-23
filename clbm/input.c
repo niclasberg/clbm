@@ -9,7 +9,7 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	// Default parameters
 	InputParameters params;
 	params.p_length = 12;
-	params.kb = 2;
+	params.kb = 0.5;
 	params.St = 10;
 	params.freq = 0.1;
 	params.Re_p = 1;
@@ -40,7 +40,7 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 
 	// Fsi parameters
 	fsi_params->a = params.p_length;
-	fsi_params->b = params.p_length / params.kb;
+	fsi_params->b = params.p_length * params.kb;
 	fsi_params->rho = flow_params->rho * params.St / params.Re_p;
 	fsi_params->nodes = params.nodes;
 	fsi_params->coord_c[0] = params.lx / 2.0 - 0.5;
