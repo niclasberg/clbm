@@ -18,7 +18,7 @@ void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 
 	// Compute inertia
 	p_state->inertia = params->rho * PI * params->a * params->b *
-						(pow2(params->a) + pow2(params->b)) * 4.0 / 15.0;
+						(pow2(params->a) + pow2(params->b)) / 4.0;
 
 	// Copy center point
 	p_state->coord_c[0] = params->coord_c[0];
@@ -44,8 +44,8 @@ void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 
 	generate_particle_initial(params, p_state);
 	generate_particle_volume(p_state);
-	rotate_particle(p_state);
 	print_particle(p_state);
+	rotate_particle(p_state);
 }
 
 void generate_particle_initial(FsiParams * params, ParticleState * p_state)
