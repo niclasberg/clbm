@@ -14,6 +14,14 @@ typedef struct {
 } FsiParams;
 
 typedef struct {
+	unsigned int output_step;
+	int print_ux;
+	int print_uy;
+	int print_rho;
+	int print_particle_state;
+} OutputParams;
+
+typedef struct {
 	double * f[Q], * f_next[Q];
 } LbmState;
 

@@ -1,22 +1,18 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
-#include "clbm.h"
-#include "micro_bc.h"
-#include "macro_bc.h"
-#include "plot.h"
-#include "fsi.h"
-#include "macros.h"
-#include "data_types.h"
-#include "input.h"
 #include <time.h>
-
-FILE * output_file;
+#include "clbm.h" 		/* for lbm_init_state, lbm_destroy_state, lbm_run */
+#include "micro_bc.h" 	/* for microscopic boundary condition definitions */
+#include "macro_bc.h"	/* for microscopic boundary condition definitions */
+#include "fsi.h" 		/* for fsi_init_state, fsi_destroy_state, fsi_run */
+#include "macros.h"		/* for lattice definitions (Q) */
+#include "data_types.h"	/* for solution and parameter structs */
+#include "input.h" 		/* for parse_input */
+#include "output.h" 	/* for write_output */
 
 void init_flow(FlowParams *, FlowState *);
 void destroy_flow(FlowState *);
-void post_process(unsigned int, FlowParams *, FlowState *, ParticleState *);
 void swap_states(LbmState *);
 void print_info(FlowParams *, FsiParams *);
 
@@ -26,19 +22,17 @@ int main(int argc, char ** argv)
 	clock_t start, end;
 	FlowParams flow_params;
 	FsiParams fsi_params;
+	OutputParams output_params;
 	FlowState flow_state;
 	ParticleState particle_state;
 	LbmState lbm_state;
 
 	// Read simulation parameters
-	parse_input(argc, argv, &flow_params, &fsi_params);
-
-	// Print info
+	parse_input(argc, argv, &flow_params, &fsi_params, &output_params);
 	print_info(&flow_params, &fsi_params);
 
-	// Setup plotting engine
-	//init_plot();
-	output_file = fopen("output.txt", "w");
+	// Setup output
+	init_output(&output_params);
 
 	// Initialize structs
 	fsi_init_state(&fsi_params, &particle_state);
@@ -46,6 +40,7 @@ int main(int argc, char ** argv)
 	lbm_init_state(&flow_state, &lbm_state);
 
 	start = clock();
+	write_output(0, &output_params, &flow_state, &particle_state);
 
 	for(it = 1; it <= Nt; ++it) {
 		if((it % output_step) == 0) {
@@ -55,7 +50,7 @@ int main(int argc, char ** argv)
 			start = end;
 		}
 
-		// Set reference velocity
+		// Set reference velocity (used in the boundary conditions)
 		flow_state.u_ref = flow_params.u_max * sin(flow_params.f * it);
 
 		// Solve the fsi problem
@@ -65,18 +60,18 @@ int main(int argc, char ** argv)
 		lbm_run(&flow_state, &lbm_state);
 
 		// Post process the result
-		post_process(it, &flow_params, &flow_state, &particle_state);
+		if((it % output_params.output_step) == 0)
+			write_output(it, &output_params, &flow_state, &particle_state);
 
 		// Swap the f_next and f array in the LbmState struct
 		swap_states(&lbm_state);
 	}
 
 	// Clean up
-	fclose(output_file);
+	destroy_output();
 	fsi_destroy_state(&particle_state);
 	lbm_destroy_state(&lbm_state);
 	destroy_flow(&flow_state);
-	//destroy_plot();
 
 	return 0;
 }
@@ -160,21 +155,6 @@ void destroy_flow(FlowState * f_state)
 	free(f_state->macro_bc);
 	free(f_state->micro_bc);
 	free(f_state->is_corner);
-}
-
-void post_process(unsigned int it, FlowParams * f_params, FlowState * f_state, ParticleState * p_state)
-{
-	/*if((it % 400) == 0) {
-		PlotOptions plot_opts;
-		plot_opts.min_val = -f_params->u_max;
-		plot_opts.max_val = f_params->u_max;
-		imagesc(f_state->lx, f_state->ly, f_state->u[0], &plot_opts);
-	}*/
-
-	if((it % 400) == 0) {
-		fprintf(output_file, "%d\t%.14g\t%.14g\n", it, p_state->angle, p_state->ang_vel);
-		fflush(output_file);
-	}
 }
 
 void swap_states(LbmState * lbm_state)

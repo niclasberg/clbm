@@ -13,9 +13,14 @@ typedef struct {
 	double u_max;			// Maximal wall velocity amplitude
 	unsigned int lx, ly;	// Number of grid points for the flow field discretization
 	unsigned int nodes;		// Number of nodes for the particle
+	unsigned int output_step;
+	int print_ux;
+	int print_uy;
+	int print_rho;
+	int print_particle_state;
 } InputParameters;
 
-void parse_input(int, char **, FlowParams *, FsiParams *);
+void parse_input(int, char **, FlowParams *, FsiParams *, OutputParams *);
 
 static void read_input_file(char *, InputParameters *);
 

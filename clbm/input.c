@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * fsi_params)
+void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * fsi_params, OutputParams * output_params)
 {
 	// Default parameters
 	InputParameters params;
@@ -19,6 +19,11 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	params.nodes = 50;
 	params.init_angle = 0;
 	params.init_ang_vel = 0;
+	params.output_step = 400;
+	params.print_particle_state = 1;
+	params.print_rho = 0;
+	params.print_ux = 0;
+	params.print_uy = 0;
 
 	// Read from file is the optional argument is supplied
 	if(argc > 1 && strlen(argv[1]) > 0)
@@ -36,8 +41,6 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	flow_params->f = G * params.freq;
 	flow_params->u_max = params.u_max;
 
-	printf("Nodes: %d\n", params.nodes);
-
 	// Fsi parameters
 	fsi_params->a = params.p_length;
 	fsi_params->b = params.p_length * params.kb;
@@ -47,6 +50,13 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	fsi_params->coord_c[1] = params.ly / 2.0 - 0.5;
 	fsi_params->init_angle = params.init_angle;
 	fsi_params->init_ang_vel = params.init_ang_vel;
+
+	// Output parameters
+	output_params->output_step = params.output_step;
+	output_params->print_particle_state = params.print_particle_state;
+	output_params->print_rho = params.print_rho;
+	output_params->print_ux = params.print_ux;
+	output_params->print_uy = params.print_uy;
 }
 
 void read_input_file(char * file_name, InputParameters * params)
@@ -98,6 +108,16 @@ void read_input_file(char * file_name, InputParameters * params)
 			params->init_angle = atof(value);
 		else if(strcmp(key, "ang_vel") == 0)
 			params->init_ang_vel = atof(value);
+		else if(strcmp(key, "output_step") == 0)
+			params->output_step = atoi(value);
+		else if(strcmp(key, "print_particle") == 0)
+			params->print_particle_state = atoi(value);
+		else if(strcmp(key, "print_rho") == 0)
+			params->print_rho = atoi(value);
+		else if(strcmp(key, "print_ux") == 0)
+			params->print_ux = atoi(value);
+		else if(strcmp(key, "print_uy") == 0)
+			params->print_uy = atoi(value);
 		else {
 			fprintf(stderr, "Unknown key %s in file %s\n", key, file_name);
 			exit(1);

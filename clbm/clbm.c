@@ -73,7 +73,6 @@ void lbm_run(FlowState * f_state, LbmState * lbm_state)
 /*
  * Lbm implementation methods
  */
-
 void collide(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i, j, k, idx;

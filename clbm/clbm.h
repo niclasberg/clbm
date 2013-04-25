@@ -8,7 +8,6 @@ void lbm_destroy_state();
 void lbm_lattice_info();
 void lbm_print_info();
 
-static void bcs(FlowState * , LbmState *);
 static void collide(FlowState * , LbmState *);
 static void stream(FlowState * , LbmState *);
 static void hydrovar(FlowState * , LbmState *);

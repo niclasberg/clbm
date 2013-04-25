@@ -10,3 +10,9 @@ ly	50				Domain width
 Re_p	1			Reynolds number (based on particle length)
 umax	0.01		Maximal wall velocity
 freq	0.1			Wall oscillation frequency
+
+#output
+output_step	100
+print_ux	1
+print_uy	1
+print_rho	1
