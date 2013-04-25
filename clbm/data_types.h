@@ -14,6 +14,7 @@ typedef struct {
 } FsiParams;
 
 typedef struct {
+	unsigned int timesteps;
 	unsigned int output_step;
 	int print_ux;
 	int print_uy;

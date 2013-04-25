@@ -1,3 +1,5 @@
+timesteps	10000
+
 #particle parameters
 nodes	50			Particle discretization node count
 p_length	10		Particle length (in lattice units)
@@ -13,6 +15,7 @@ freq	0.1			Wall oscillation frequency
 
 #output
 output_step	100
-print_ux	1
-print_uy	1
-print_rho	1
+print_ux	0
+print_uy	0
+print_rho	0
+print_particle	1

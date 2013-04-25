@@ -18,7 +18,7 @@ void print_info(FlowParams *, FsiParams *);
 
 int main(int argc, char ** argv)
 {
-	unsigned int Nt = 12000000, it, output_step = 1000;
+	unsigned int it, output_step = 1000;
 	clock_t start, end;
 	FlowParams flow_params;
 	FsiParams fsi_params;
@@ -42,10 +42,10 @@ int main(int argc, char ** argv)
 	start = clock();
 	write_output(0, &output_params, &flow_state, &particle_state);
 
-	for(it = 1; it <= Nt; ++it) {
+	for(it = 1; it <= output_params.timesteps; ++it) {
 		if((it % output_step) == 0) {
 			end = clock();
-			printf("Iteration %d/%d, time/iteration %f, angle=%f, ang_vel=%f\n", it, Nt,
+			printf("Iteration %d/%d, time/iteration %f, angle=%f, ang_vel=%f\n", it, output_params.timesteps,
 					((float)(end - start))/CLOCKS_PER_SEC/output_step, particle_state.angle, particle_state.ang_vel);
 			start = end;
 		}

@@ -24,6 +24,7 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	params.print_rho = 0;
 	params.print_ux = 0;
 	params.print_uy = 0;
+	params.timesteps = 12000000;
 
 	// Read from file is the optional argument is supplied
 	if(argc > 1 && strlen(argv[1]) > 0)
@@ -57,6 +58,7 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	output_params->print_rho = params.print_rho;
 	output_params->print_ux = params.print_ux;
 	output_params->print_uy = params.print_uy;
+	output_params->timesteps = params.timesteps;
 }
 
 void read_input_file(char * file_name, InputParameters * params)
@@ -118,6 +120,8 @@ void read_input_file(char * file_name, InputParameters * params)
 			params->print_ux = atoi(value);
 		else if(strcmp(key, "print_uy") == 0)
 			params->print_uy = atoi(value);
+		else if(strcmp(key, "timesteps") == 0)
+			params->timesteps = atoi(value);
 		else {
 			fprintf(stderr, "Unknown key %s in file %s\n", key, file_name);
 			exit(1);

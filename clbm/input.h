@@ -14,6 +14,7 @@ typedef struct {
 	unsigned int lx, ly;	// Number of grid points for the flow field discretization
 	unsigned int nodes;		// Number of nodes for the particle
 	unsigned int output_step;
+	unsigned int timesteps;
 	int print_ux;
 	int print_uy;
 	int print_rho;
