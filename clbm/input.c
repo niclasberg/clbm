@@ -3,12 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "macros.h"
 
 void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * fsi_params, OutputParams * output_params)
 {
 	// Default parameters
 	InputParameters params;
-	params.p_length = 12;
 	params.kb = 0.5;
 	params.St = 10;
 	params.freq = 0.1;
@@ -16,7 +16,7 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	params.u_max = 0.01;
 	params.lx = 100;
 	params.ly = 100;
-	params.nodes = 50;
+	params.conf = 0.2;
 	params.init_angle = 0;
 	params.init_ang_vel = 0;
 	params.output_step = 400;
@@ -32,10 +32,12 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 
 	// Compute resulting parameters
 	// Flow parameters
-	double G = 2.0 * (double) params.u_max / ((double) params.ly);
-	double Re = pow((params.ly/2) / params.p_length, 2) * params.Re_p;
-	double visc = params.u_max * params.ly/2 / Re;
-	flow_params->tau = 3*visc + 0.5;
+	double d = (params.ly - 1.0)/2.0; 					// Channel half-height
+	double G = (double) params.u_max / d;				// Shear rate (LB units)
+	double Re =  params.Re_p / pow(params.conf, 2);		// Channel Reynolds number
+	double visc = params.u_max * d / Re;				// Viscocity
+
+	flow_params->tau = 3.0*visc + 0.5;
 	flow_params->lx = params.lx;
 	flow_params->ly = params.ly;
 	flow_params->rho = 1;
@@ -43,14 +45,25 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	flow_params->u_max = params.u_max;
 
 	// Fsi parameters
-	fsi_params->a = params.p_length;
-	fsi_params->b = params.p_length * params.kb;
+	double a = params.conf * d;
+	double b = a * params.kb;
+
+	fsi_params->a = a;
+	fsi_params->b = b;
 	fsi_params->rho = flow_params->rho * params.St / params.Re_p;
-	fsi_params->nodes = params.nodes;
 	fsi_params->coord_c[0] = params.lx / 2.0 - 0.5;
 	fsi_params->coord_c[1] = params.ly / 2.0 - 0.5;
 	fsi_params->init_angle = params.init_angle;
 	fsi_params->init_ang_vel = params.init_ang_vel;
+
+	// Compute the number of nodes so that the distance between each
+	// node is of order 1
+	double h = pow((a - b) / (a + b), 2);
+	double circ = PI * (a + b) *
+			(1.0 + 3.0*h/(10.0 + sqrt(4.0-3.0*h)));
+	fsi_params->nodes = ceil(circ);
+
+	printf("%d", fsi_params->nodes);
 
 	// Output parameters
 	output_params->output_step = params.output_step;
@@ -88,8 +101,8 @@ void read_input_file(char * file_name, InputParameters * params)
 
 		if(strcmp(key, "Re_p") == 0)
 			params->Re_p = atof(value);
-		else if(strcmp(key, "p_length") == 0)
-			params->p_length = atof(value);
+		else if(strcmp(key, "conf") == 0)
+			params->conf = atof(value);
 		else if(strcmp(key, "kb") == 0)
 			params->kb = atof(value);
 		else if(strcmp(key, "St") == 0)
@@ -104,8 +117,6 @@ void read_input_file(char * file_name, InputParameters * params)
 			params->lx = atoi(value);
 		else if(strcmp(key, "ly") == 0)
 			params->ly = atoi(value);
-		else if(strcmp(key, "nodes") == 0)
-			params->nodes = atoi(value);
 		else if(strcmp(key, "angle") == 0)
 			params->init_angle = atof(value);
 		else if(strcmp(key, "ang_vel") == 0)

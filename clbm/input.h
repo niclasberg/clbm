@@ -3,8 +3,8 @@
 #include "data_types.h"
 
 typedef struct {
-	double p_length; 		// particle length (along the longest axis)
-	double kb;				// particle aspect ratio
+	double conf; 			// Confinement: particle_major_length / domain_height
+	double kb;				// Particle aspect ratio
 	double St;				// Stokes number
 	double init_angle;		// Initial orientation of the particle
 	double init_ang_vel;	// Initial rotational velocity of particle
@@ -12,7 +12,6 @@ typedef struct {
 	double Re_p;			// Particle Reynolds number
 	double u_max;			// Maximal wall velocity amplitude
 	unsigned int lx, ly;	// Number of grid points for the flow field discretization
-	unsigned int nodes;		// Number of nodes for the particle
 	unsigned int output_step;
 	unsigned int timesteps;
 	int print_ux;

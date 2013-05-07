@@ -44,8 +44,8 @@ void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 
 	generate_particle_initial(params, p_state);
 	generate_particle_volume(p_state);
-	print_particle(p_state);
 	rotate_particle(p_state);
+	print_particle(p_state);
 }
 
 void generate_particle_initial(FsiParams * params, ParticleState * p_state)

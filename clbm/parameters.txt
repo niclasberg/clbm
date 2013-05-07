@@ -1,20 +1,19 @@
-timesteps	10000
+timesteps	100000
 
 #particle parameters
-nodes	50			Particle discretization node count
-p_length	10		Particle length (in lattice units)
-kb	2				Particle aspect ratio
+conf	0.2			Particle confinement (particle_length / domain_height)
+kb	0.5				Particle aspect ratio
 St	10				Stokes number
 
 #flow parameters
-lx	50				Domain length
-ly	50				Domain width
-Re_p	1			Reynolds number (based on particle length)
-umax	0.01		Maximal wall velocity
-freq	0.1			Wall oscillation frequency
+lx	200				Domain length
+ly	200				Domain width
+Re_p	10			Reynolds number (based on particle length)
+umax	0.04		Maximal wall velocity
+freq	0.1			Wall oscillation frequency (made non-dimensional by the shear rate)
 
 #output
-output_step	100
+output_step	400
 print_ux	0
 print_uy	0
 print_rho	0
