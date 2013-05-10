@@ -32,7 +32,7 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 
 	// Compute resulting parameters
 	// Flow parameters
-	double d = (params.ly - 1.0)/2.0; 					// Channel half-height
+	double d = params.ly/2.0; 							// Channel half-height
 	double G = (double) params.u_max / d;				// Shear rate (LB units)
 	double Re =  params.Re_p / pow(params.conf, 2);		// Channel Reynolds number
 	double visc = params.u_max * d / Re;				// Viscocity
