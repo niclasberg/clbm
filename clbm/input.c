@@ -32,7 +32,7 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 
 	// Compute resulting parameters
 	// Flow parameters
-	double d = params.ly/2.0; 							// Channel half-height
+	double d = (params.ly - 1)/2.0; 					// Channel half-height
 	double G = (double) params.u_max / d;				// Shear rate (LB units)
 	double Re =  params.Re_p / pow(params.conf, 2);		// Channel Reynolds number
 	double visc = params.u_max * d / Re;				// Viscocity
@@ -57,13 +57,11 @@ void parse_input(int argc, char ** argv, FlowParams * flow_params, FsiParams * f
 	fsi_params->init_ang_vel = params.init_ang_vel;
 
 	// Compute the number of nodes so that the distance between each
-	// node is of order 1
+	// node can be of order 1
 	double h = pow((a - b) / (a + b), 2);
 	double circ = PI * (a + b) *
 			(1.0 + 3.0*h/(10.0 + sqrt(4.0-3.0*h)));
 	fsi_params->nodes = ceil(circ);
-
-	printf("%d", fsi_params->nodes);
 
 	// Output parameters
 	output_params->output_step = params.output_step;
