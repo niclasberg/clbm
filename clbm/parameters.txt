@@ -1,16 +1,16 @@
-timesteps	100000
+timesteps	1000000
 
 #particle parameters
-conf	0.2			Particle confinement (particle_length / domain_height)
-kb	0.5				Particle aspect ratio
-St	10				Stokes number
+conf	0.2
+kb	0.5
+alpha	100
 
 #flow parameters
-lx	200				Domain length
-ly	200				Domain width
-Re_p	10			Reynolds number (based on particle length)
-umax	0.04		Maximal wall velocity
-freq	0.1			Wall oscillation frequency (made non-dimensional by the shear rate)
+lx	64
+ly	64
+Re_p	1
+umax	0.05
+freq	0.1
 
 #output
 output_step	400

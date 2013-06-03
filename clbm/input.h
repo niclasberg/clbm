@@ -1,27 +1,9 @@
 #ifndef INPUT_H_
 #define INPUT_H_
 #include "data_types.h"
+#include <string.h>
 
-typedef struct {
-	double conf; 			// Confinement: particle_major_length / domain_height
-	double kb;				// Particle aspect ratio
-	double St;				// Stokes number
-	double init_angle;		// Initial orientation of the particle
-	double init_ang_vel;	// Initial rotational velocity of particle
-	double freq;			// Oscillation frequency of the walls
-	double Re_p;			// Particle Reynolds number
-	double u_max;			// Maximal wall velocity amplitude
-	unsigned int lx, ly;	// Number of grid points for the flow field discretization
-	unsigned int output_step;
-	unsigned int timesteps;
-	int print_ux;
-	int print_uy;
-	int print_rho;
-	int print_particle_state;
-} InputParameters;
-
-void parse_input(int, char **, FlowParams *, FsiParams *, OutputParams *);
-
-static void read_input_file(char *, InputParameters *);
+void parse_input(InputParameters *, FlowParams *, FsiParams *, OutputParams *);
+void read_input_file(char *, InputParameters **, size_t *);
 
 #endif /* INPUT_H_ */
