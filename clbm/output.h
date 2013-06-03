@@ -3,7 +3,7 @@
 #include "data_types.h"
 
 void init_output(OutputParams *);
-void destroy_output();
+void destroy_output(OutputParams *);
 void write_output(unsigned int, OutputParams *, FlowState *, ParticleState *);
 static void write_array_to_new_file(char *, unsigned int, unsigned int, double *);
 

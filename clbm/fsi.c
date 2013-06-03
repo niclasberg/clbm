@@ -44,8 +44,8 @@ void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 
 	generate_particle_initial(params, p_state);
 	generate_particle_volume(p_state);
-	rotate_particle(p_state);
-	print_particle(p_state);
+	fsi_update_particle_nodes(p_state);
+	//print_particle(p_state);
 }
 
 void generate_particle_initial(FsiParams * params, ParticleState * p_state)
@@ -96,7 +96,7 @@ inline double pow2(double X)
 	return X*X;
 }
 
-void rotate_particle(ParticleState * p_state)
+void fsi_update_particle_nodes(ParticleState * p_state)
 {
 	unsigned int i;
 	for(i = 0; i < p_state->nodes; ++i) {
@@ -160,13 +160,61 @@ void fsi_destroy_state(ParticleState * p_state)
 	free(p_state->volume);
 }
 
-void fsi_run(FlowState * f_state, ParticleState * p_state) {
+void fsi_copy_state(ParticleState * dest, ParticleState * src)
+{
+	unsigned int dim_it, j;
+
+	// Copy scalar quantities
+	dest->ang_vel = src->ang_vel;
+	dest->angle = src->angle;
+	dest->inertia = src->inertia;
+	dest->nodes = src->nodes;
+	dest->torque = src->torque;
+	dest->width = src->width;
+
+	// Copy center point coordinate
+	dest->coord_c[0] = src->coord_c[0];
+	dest->coord_c[1] = src->coord_c[1];
+
+	// Allocate space for vector quantites
+	for(dim_it = 0; dim_it < DIM; ++dim_it) {
+		// FSI force
+		dest->force_fsi[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
+
+		// Node positions
+		dest->coord_p[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
+		dest->coord_a[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
+	}
+
+	// Scalar quantities
+	dest->volume = (double *) malloc(dest->nodes * sizeof(double));
+
+	// Copy values
+	for(j = 0; j < dest->nodes; ++j) {
+		dest->volume[j] = src->volume[j];
+
+		for(dim_it = 0; dim_it < DIM; ++dim_it ) {
+			dest->force_fsi[dim_it][j] = src->force_fsi[dim_it][j];
+			dest->coord_p[dim_it][j] = src->coord_p[dim_it][j];
+			dest->coord_a[dim_it][j] = src->coord_a[dim_it][j];
+		}
+	}
+}
+
+void fsi_run(FlowState * f_state, ParticleState * p_state)
+{
+	fsi_compute_force_on_particle(f_state, p_state);
+	fsi_update_particle(p_state);
+	fsi_project_force_on_fluid(f_state, p_state);
+}
+
+void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
+{
 	unsigned int i, j, np, idx, i_min, i_max, j_min, j_max;
-	double torque, temp_x, temp_y, dir, dx, dy,
-		   up_particle_x, up_particle_y, uf_particle_x, uf_particle_y;
+	double dir, dx, dy, up_particle_x, up_particle_y, uf_particle_x, uf_particle_y;
 
 	// Evaluate the torque on the particle
-	torque = 0;
+	p_state->torque = 0;
 	for(np = 0; np < p_state->nodes; ++np) {
 		// Find positions relative to the center
 		dx = p_state->coord_p[0][np] - p_state->coord_c[0];
@@ -200,15 +248,32 @@ void fsi_run(FlowState * f_state, ParticleState * p_state) {
 		p_state->force_fsi[1][np] = (uf_particle_y - up_particle_y) * p_state->volume[np];
 
 		// Compute the torque addition
-		torque += dx * p_state->force_fsi[1][np] - dy * p_state->force_fsi[0][np];
+		p_state->torque += dx * p_state->force_fsi[1][np] - dy * p_state->force_fsi[0][np];
 	}
+}
 
+double dirac(double dx, double dy)
+{
+	if((dx*dx+dy*dy) > 4)
+		return 0;
+	else
+		return (1.0/16.0) * (1.0 + cos(PI*dx/2.0)) * (1.0 + cos(PI*dy/2.0));
+}
+
+void fsi_update_particle(ParticleState * p_state)
+{
 	// Update the particle angle and angular velocity
-	p_state->ang_vel += torque / p_state->inertia;
+	p_state->ang_vel += p_state->torque / p_state->inertia;
 	p_state->angle += p_state->ang_vel;
 
 	// Update the particle nodes' positions
-	rotate_particle(p_state);
+	fsi_update_particle_nodes(p_state);
+}
+
+void fsi_project_force_on_fluid(FlowState * f_state, ParticleState * p_state)
+{
+	unsigned int i, j, np, idx, i_min, i_max, j_min, j_max;
+	double temp_x, temp_y, dir;
 
 	//Calculate force on fluid
 	i_min = floor(p_state->coord_c[0] - p_state->width - 2);
@@ -233,12 +298,4 @@ void fsi_run(FlowState * f_state, ParticleState * p_state) {
 			f_state->force[1][idx] = temp_y;
 		}
 	}
-}
-
-double dirac(double dx, double dy)
-{
-	if((dx*dx+dy*dy) > 4)
-		return 0;
-	else
-		return (1.0/16.0) * (1.0 + cos(PI*dx/2.0)) * (1.0 + cos(PI*dy/2.0));
 }

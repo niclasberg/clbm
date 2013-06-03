@@ -8,10 +8,14 @@ void fsi_destroy_state(ParticleState *);
 void fsi_init_state(FsiParams *, ParticleState *);
 void fsi_run(FlowState *, ParticleState *);
 void fsi_print_info(ParticleState *);
+void fsi_copy_state(ParticleState *, ParticleState *);
+void fsi_update_particle_nodes(ParticleState *);
+void fsi_compute_force_on_particle(FlowState *, ParticleState *);
+void fsi_update_particle(ParticleState *);
+void fsi_project_force_on_fluid(FlowState *, ParticleState *);
 
 // Implementation methods
 static void generate_particle_volume(ParticleState *);
-static void rotate_particle(ParticleState *);
 static void generate_particle_initial(FsiParams *, ParticleState *);
 static double dirac(double, double);
 static void print_particle(ParticleState *);

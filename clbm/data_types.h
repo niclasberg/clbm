@@ -1,9 +1,28 @@
 #ifndef DATA_TYPES_H_
 #define DATA_TYPES_H_
 #include "macros.h"
+#include <stdio.h>
 
 typedef struct {
-	double f, tau, u_max, rho;
+	double conf; 			// Confinement: particle_major_length / domain_height
+	double kb;				// Particle aspect ratio
+	double alpha;			// Density ratio (particle / fluid)
+	double init_angle;		// Initial orientation of the particle
+	double init_ang_vel;	// Initial rotational velocity of particle
+	double freq;			// Oscillation frequency of the walls
+	double Re_p;			// Particle Reynolds number
+	double u_max;			// Maximal wall velocity amplitude
+	unsigned int lx, ly;	// Number of grid points for the flow field discretization
+	unsigned int output_step;
+	unsigned int timesteps;
+	int print_ux;
+	int print_uy;
+	int print_rho;
+	int print_particle_state;
+} InputParameters;
+
+typedef struct {
+	double G, f, tau, u_max, rho;
 	unsigned int lx, ly;
 } FlowParams;
 
@@ -20,6 +39,8 @@ typedef struct {
 	int print_uy;
 	int print_rho;
 	int print_particle_state;
+	char output_folder[256];
+	FILE * output_file;
 } OutputParams;
 
 typedef struct {
@@ -36,6 +57,7 @@ typedef struct {
 	double * u[DIM];		// Velocity field
 	double tau;				// Relaxation parameter
 	double u_ref;			// Reference velocity
+	double G;				// Time scale
 } FlowState;
 
 typedef struct {
@@ -46,9 +68,20 @@ typedef struct {
 	unsigned int nodes; 	// Number of nodes
 	double coord_c[DIM]; 		// Center-point coordinate
 	double inertia;			// Moment of inertia
+	double torque;			// Torque on particle
 	double * force_fsi[DIM];// Fluid-structure interaction force
 	double width;			// Width of the particle
 } ParticleState;
+
+typedef struct {
+	ParticleState * base_state;
+	ParticleState * perturbed_state;
+	double t0;				// Iteration where the lyapunov calculation started
+	double d0;				// Magnitude of the initial disturbance
+	double norm_tol;		// Square of the tolerance for when a normalization should take place
+	double lambda;			// Lyapunov exponent
+	double cum_sum;			// = "lyapunov exponent" * (t - t0)
+} LyapunovParticleState;
 
 typedef struct {
 	double f[Q];
