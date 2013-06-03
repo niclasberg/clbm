@@ -12,6 +12,8 @@ void lyapunov_init_state(unsigned int it, ParticleState * p_state, LyapunovParti
 	// Initialize scalar values
 	lp_state->cum_sum = 0;
 	lp_state->t0 = it;
+	lp_state->lambda = 0;
+	lp_state->norm_count = 0;
 
 	// Save a pointer to the base state
 	lp_state->base_state = p_state;
@@ -49,17 +51,11 @@ void lyapunov_run(unsigned int it, LyapunovParticleState * lp_state, FlowState *
 		lp_state->perturbed_state->angle = lp_state->base_state->angle + (lp_state->perturbed_state->angle - lp_state->base_state->angle) / alpha;
 		lp_state->perturbed_state->ang_vel = lp_state->base_state->ang_vel + (lp_state->perturbed_state->ang_vel*f_state->G - lp_state->base_state->ang_vel*f_state->G) / alpha;
 
-		printf("%e, alpha = %e \n", d, alpha);
-		d = sqrt(pow(lp_state->perturbed_state->angle - lp_state->base_state->angle, 2) +
-					   pow((lp_state->perturbed_state->ang_vel/f_state->G - lp_state->base_state->ang_vel/f_state->G), 2));
-		printf("d after = %e\n", d);
-
 		fsi_update_particle_nodes(lp_state->perturbed_state);
 
 		// Update the lyapunov exponent
 		lp_state->cum_sum += log(alpha);
 		lp_state->lambda = lp_state->cum_sum / (f_state->G*((double)it - lp_state->t0));
-
-		printf("Lyapunov exponent: %f\n", lp_state->lambda);
+		lp_state->norm_count++;
 	}
 }

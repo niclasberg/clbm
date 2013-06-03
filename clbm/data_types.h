@@ -76,11 +76,12 @@ typedef struct {
 typedef struct {
 	ParticleState * base_state;
 	ParticleState * perturbed_state;
-	double t0;				// Iteration where the lyapunov calculation started
-	double d0;				// Magnitude of the initial disturbance
-	double norm_tol;		// Square of the tolerance for when a normalization should take place
-	double lambda;			// Lyapunov exponent
-	double cum_sum;			// = "lyapunov exponent" * (t - t0)
+	double t0;					// Iteration where the lyapunov calculation started
+	double d0;					// Magnitude of the initial disturbance
+	double norm_tol;			// Square of the tolerance for when a normalization should take place
+	double lambda;				// Lyapunov exponent
+	double cum_sum;				// = "lyapunov exponent" * (t - t0)
+	unsigned int norm_count;	// Number of normalization/average cycles performed
 } LyapunovParticleState;
 
 typedef struct {

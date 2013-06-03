@@ -34,7 +34,7 @@ int main(int argc, char ** argv)
 	read_input_file(argv[1], &params, &params_count);
 
 	// Queue up jobs
-	workerpool_init(1);
+	workerpool_init(10);
 
 	for(i = 0; i < params_count; ++i)
 		workerpool_push_job(solve, (void *) &params[i]);
@@ -51,7 +51,8 @@ int main(int argc, char ** argv)
 void solve(void * args) {
 	InputParameters * params = (InputParameters *) args;
 
-	unsigned int it;
+	int is_done = 0;
+	unsigned int it, iterations;
 	FlowParams flow_params;
 	FsiParams fsi_params;
 	OutputParams output_params;
@@ -78,9 +79,11 @@ void solve(void * args) {
 	write_output(0, &output_params, &flow_state, &particle_state);
 
 	// Iteration at which Lyapunov exponent calculation should start (t = 10 * St)
-	unsigned int lya_start_it = ceil(10.0 * params->alpha * params->Re_p / flow_params.G);
+	unsigned int lya_start_it = ceil(50.0 * params->alpha * params->Re_p / flow_params.G);
 
-	for(it = 1; it <= output_params.timesteps; ++it) {
+	//for(it = 1; it <= output_params.timesteps; ++it) {
+	//for(it = 1; it <= iterations; ++it) {
+	while( ! is_done) {
 		// Set reference velocity (used in the boundary conditions)
 		flow_state.u_ref = flow_params.u_max * sin(flow_params.f * it);
 
@@ -95,6 +98,8 @@ void solve(void * args) {
 			} else {
 				lyapunov_run(it, lya_particle_state, &flow_state);
 				//printf("Lyapunov exponent: %f\n", lya_particle_state->lambda);
+				if(lya_particle_state->norm_count >= 1000)
+					is_done = 1;
 			}
 		}
 

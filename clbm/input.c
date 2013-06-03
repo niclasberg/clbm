@@ -12,6 +12,10 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 	// Compute resulting parameters
 	// Flow parameters
 	double d = (params->ly - 1)/2.0; 					// Channel half-height
+
+	// Scale umax so that the time resolution is constant for different channel heights
+	//params->u_max = (params->ly - 1.0)/(128 - 1) * params->u_max;
+
 	double G = (double) params->u_max / d;				// Shear rate (LB units)
 	double Re =  params->Re_p / pow(params->conf, 2);		// Channel Reynolds number
 	double visc = params->u_max * d / Re;				// Viscocity
@@ -50,8 +54,8 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 	output_params->print_ux = params->print_ux;
 	output_params->print_uy = params->print_uy;
 	output_params->timesteps = params->timesteps;
-	sprintf(output_params->output_folder, "alpha%dNx%dNy%d/Re%f/f%f/angle%f",
-			(int)params->alpha, params->lx, params->ly, params->Re_p, params->freq, params->init_angle);
+	sprintf(output_params->output_folder, "alpha%dconf%.2fNx%dNy%d/kb%.2f/Re%.2f/f%.2f/angle%.2f",
+			(int)params->alpha, params->conf, params->lx, params->ly, params->kb, params->Re_p, params->freq, params->init_angle);
 }
 
 

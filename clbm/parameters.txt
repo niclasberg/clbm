@@ -1,19 +1,19 @@
-timesteps	1000000
+timesteps	6000000
 
 #particle parameters
 conf	0.2
-kb	0.5
-alpha	100
+kb	0.5	0.25	0.125	0.0625	
+alpha	10
 
 #flow parameters
-lx	64
-ly	64
-Re_p	1
+lx	128
+ly	128
+Re_p	1	2	3	4	5
 umax	0.05
-freq	0.1
+freq	0.1	0.2
 
 #output
-output_step	400
+output_step	100
 print_ux	0
 print_uy	0
 print_rho	0
