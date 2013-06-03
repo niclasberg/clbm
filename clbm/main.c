@@ -76,7 +76,7 @@ void solve(void * args) {
 	lbm_init_state(&flow_state, &lbm_state);
 
 	// Write initial particle state
-	write_output(0, &output_params, &flow_state, &particle_state);
+	write_output(0, &output_params, &flow_state, &particle_state, lya_particle_state);
 
 	// Iteration at which Lyapunov exponent calculation should start (t = 10 * St)
 	unsigned int lya_start_it = ceil(50.0 * params->alpha * params->Re_p / flow_params.G);
@@ -108,7 +108,7 @@ void solve(void * args) {
 
 		// Post process the result
 		if((it % output_params.output_step) == 0)
-			write_output(it, &output_params, &flow_state, &particle_state);
+			write_output(it, &output_params, &flow_state, &particle_state, lya_particle_state);
 
 		// Swap the f_next and f array in the LbmState struct
 		swap_states(&lbm_state);
