@@ -94,7 +94,7 @@ void write_output(unsigned int it, OutputParams * output_params, FlowState * f_s
 		if(lp_state)
 			fprintf(output_params->output_file, "%d\t%.14g\t%.14g\t%.14g\n", it, p_state->angle, p_state->ang_vel, lp_state->lambda);
 		else
-			fprintf(output_params->output_file, "%d\t%.14g\t%.14g\t%.14g\n", it, p_state->angle, p_state->ang_vel, 0);
+			fprintf(output_params->output_file, "%d\t%.14g\t%.14g\t%.14g\n", it, p_state->angle, p_state->ang_vel, 0.0);
 		fflush(output_params->output_file);
 	}
 

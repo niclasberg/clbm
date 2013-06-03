@@ -83,6 +83,7 @@ void solve(void * args) {
 
 	//for(it = 1; it <= output_params.timesteps; ++it) {
 	//for(it = 1; it <= iterations; ++it) {
+	it = 1;
 	while( ! is_done) {
 		// Set reference velocity (used in the boundary conditions)
 		flow_state.u_ref = flow_params.u_max * sin(flow_params.f * it);
@@ -112,6 +113,9 @@ void solve(void * args) {
 
 		// Swap the f_next and f array in the LbmState struct
 		swap_states(&lbm_state);
+
+		// Update timestep
+		++it;
 	}
 
 	// Clean up
