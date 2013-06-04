@@ -99,7 +99,7 @@ void solve(void * args) {
 			} else {
 				lyapunov_run(it, lya_particle_state, &flow_state);
 				//printf("Lyapunov exponent: %f\n", lya_particle_state->lambda);
-				if(lya_particle_state->norm_count >= 1000)
+				if(lya_particle_state->norm_count >= 1000000)
 					is_done = 1;
 			}
 		}

@@ -46,16 +46,16 @@ void lyapunov_run(unsigned int it, LyapunovParticleState * lp_state, FlowState *
 	alpha = d / lp_state->d0;
 
 	// Normalize if the distance between the trajectories is too great
-	if((d < lp_state->d0*lp_state->norm_tol) || d > (lp_state->d0/lp_state->norm_tol)) {
+	//if((d < lp_state->d0*lp_state->norm_tol) || d > (lp_state->d0/lp_state->norm_tol)) {
 		// Push the perturbed orbit towards the base orbit
-		lp_state->perturbed_state->angle = lp_state->base_state->angle + (lp_state->perturbed_state->angle - lp_state->base_state->angle) / alpha;
-		lp_state->perturbed_state->ang_vel = lp_state->base_state->ang_vel + (lp_state->perturbed_state->ang_vel*f_state->G - lp_state->base_state->ang_vel*f_state->G) / alpha;
+		//lp_state->perturbed_state->angle = lp_state->base_state->angle + (lp_state->perturbed_state->angle - lp_state->base_state->angle) / alpha;
+		//lp_state->perturbed_state->ang_vel = lp_state->base_state->ang_vel + (lp_state->perturbed_state->ang_vel*f_state->G - lp_state->base_state->ang_vel*f_state->G) / alpha;
 
-		fsi_update_particle_nodes(lp_state->perturbed_state);
+		//fsi_update_particle_nodes(lp_state->perturbed_state);
 
 		// Update the lyapunov exponent
-		lp_state->cum_sum += log(alpha);
-		lp_state->lambda = lp_state->cum_sum / (f_state->G*((double)it - lp_state->t0));
+		//lp_state->cum_sum += log(alpha);
+		lp_state->lambda = log(d);// lp_state->cum_sum;// / (f_state->G*((double)it - lp_state->t0));
 		lp_state->norm_count++;
-	}
+	//}
 }
