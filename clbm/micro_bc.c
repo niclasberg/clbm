@@ -9,7 +9,7 @@ int bc_zou_he_east = 1, bc_zou_he_north = 2, bc_zou_he_west = 3, bc_zou_he_south
 	bc_regularized_east = 9, bc_regularized_north = 10, bc_regularized_west = 11, bc_regularized_south = 12/*,
 	bc_diffusive_east = 13, bc_diffusive_north = 14, bc_diffusive_west = 15, bc_diffusive_south = 16*/;
 
-int INIT_DIFFUSIVE = 1, INIT_ZOU_HE = 2, INIT_REGULARIZED = 4;
+//int INIT_DIFFUSIVE = 1, INIT_ZOU_HE = 2, INIT_REGULARIZED = 4;
 
 /*unsigned int nx, ny;
 double * f_prev[Q];

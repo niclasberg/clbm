@@ -11,11 +11,7 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 {
 	// Compute resulting parameters
 	// Flow parameters
-	double d = (params->ly - 1)/2.0; 					// Channel half-height
-
-	// Scale umax so that the time resolution is constant for different channel heights
-	//params->u_max = (params->ly - 1.0)/(128 - 1) * params->u_max;
-
+	double d = (params->ly - 1.0)/2.0; 					// Channel half-height
 	double G = (double) params->u_max / d;				// Shear rate (LB units)
 	double Re =  params->Re_p / pow(params->conf, 2);		// Channel Reynolds number
 	double visc = params->u_max * d / Re;				// Viscocity
@@ -69,7 +65,7 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
  * parameters provided, e.g. if the file contains
  * 	Re	0.1	0.2
  * 	St	1	2
- * the resulting array will be of length 4.
+ * the resulting array will be of length 4, with (Re, St) = {(0.1, 1), (0.1, 2), (0.2, 1), (0.2, 2)}.
  * Default parameter values are provided if needed.
  */
 void read_input_file(char * file_name, InputParameters ** param_array, size_t * param_count)

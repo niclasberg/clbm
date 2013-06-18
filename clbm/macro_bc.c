@@ -67,6 +67,10 @@ void macro_bc_south(Node * node, FlowState * f_state)
 /*
  * Corner bcs:
  * Sets the velocity and extrapolates the density
+ * Note: In order for the extrapolation to be correct,
+ * 		 these bcs must be called after the hydrodynamic
+ * 		 variables have been computed in the surrounding
+ * 		 nodes.
  */
 void macro_bc_north_east(Node * node, FlowState * f_state)
 {

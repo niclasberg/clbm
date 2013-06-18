@@ -98,12 +98,10 @@ void lbm_run(FlowState * f_state, LbmState * lbm_state)
  */
 void collide(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i;
+	unsigned int i, j, k, idx;
+	double omega = 1.0 / f_state->tau, gx0, gy0, ux0, uy0, rho0;
 
 	for(i = 0; i < f_state->lx; ++i) {
-		unsigned int j, k, idx;
-		double omega = 1.0 / f_state->tau, gx0, gy0, ux0, uy0, rho0;
-
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 
@@ -123,8 +121,7 @@ void collide(FlowState * f_state, LbmState * lbm_state)
 
 void stream(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i;
-	unsigned int j, lx_m, lx_p, ly_m, ly_p, idx;
+	unsigned int i, j, lx_m, lx_p, ly_m, ly_p, idx;
 
 	for(i = 0; i < f_state->lx; ++i) {
 		for(j = 0; j < f_state->ly; ++j) {
@@ -177,6 +174,7 @@ void create_node(Node * node, unsigned int i, unsigned int j, FlowState * f_stat
 void hydrovar(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i, j, k, idx;
+	Node node;
 
 	// Evaluate the hydrodynamic variables
 	for(i = 0; i < f_state->lx; ++i) {
@@ -184,7 +182,6 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 			idx = i*f_state->ly + j;
 
 			if(f_state->macro_bc[idx] != 0) {
-				Node node;
 				create_node(&node, i, j, f_state, lbm_state);
 				macro_bc(&node, f_state, f_state->macro_bc[idx]);
 
@@ -198,9 +195,9 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 				f_state->rho[idx] = 0.0;
 
 				for(k = 0; k < Q; ++k) {
-					f_state->u[0][idx] += cx[k] * lbm_state->f[k][idx];
-					f_state->u[1][idx] += cy[k] * lbm_state->f[k][idx];
-					f_state->rho[idx] += lbm_state->f[k][idx];
+					f_state->u[0][idx] += cx[k] * lbm_state->f_next[k][idx];
+					f_state->u[1][idx] += cy[k] * lbm_state->f_next[k][idx];
+					f_state->rho[idx] += lbm_state->f_next[k][idx];
 				}
 
 				f_state->u[0][idx] /= f_state->rho[idx];

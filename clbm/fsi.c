@@ -208,17 +208,18 @@ void fsi_run(FlowState * f_state, ParticleState * p_state)
 	fsi_project_force_on_fluid(f_state, p_state);
 }
 
+/**
+ * fsi_compute_force_on_particle
+ * Evaluates the torque and forces acting on the particle from the surrounding fluid.
+ */
 void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
 {
-	unsigned int np;
+	unsigned int np, i, j, idx, i_min, i_max, j_min, j_max;
+	double dir, dx, dy, up_particle_x, up_particle_y, uf_particle_x, uf_particle_y;
 
-	// Evaluate the torque on the particle
 	p_state->torque = 0.0;
 
 	for(np = 0; np < p_state->nodes; ++np) {
-		unsigned int i, j, idx, i_min, i_max, j_min, j_max;
-		double dir, dx, dy, up_particle_x, up_particle_y, uf_particle_x, uf_particle_y;
-
 		// Find positions relative to the center
 		dx = p_state->coord_p[0][np] - p_state->coord_c[0];
 		dy = p_state->coord_p[1][np] - p_state->coord_c[1];

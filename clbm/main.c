@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
 	read_input_file(argv[1], &params, &params_count);
 
 	// Queue up jobs
-	workerpool_init(1);
+	workerpool_init(10);
 
 	for(i = 0; i < params_count; ++i)
 		workerpool_push_job(solve, (void *) &params[i]);
@@ -50,7 +50,6 @@ int main(int argc, char ** argv)
 void solve(void * args) {
 	InputParameters * params = (InputParameters *) args;
 
-	int is_done = 0;
 	unsigned int it, iterations;
 	FlowParams flow_params;
 	FsiParams fsi_params;
@@ -74,32 +73,26 @@ void solve(void * args) {
 	flow_init_state(&flow_params, &flow_state);
 	lbm_init_state(&flow_state, &lbm_state);
 
-	// Write initial particle state
+	// Write initial state
 	write_output(0, &output_params, &flow_state, &particle_state, lya_particle_state);
 
-	// Iteration at which Lyapunov exponent calculation should start (t = 10 * St)
-	//unsigned int lya_start_it = ceil(50.0 * params->alpha * params->Re_p / flow_params.G);
-	iterations = ceil((20.0*params->alpha*params->Re_p + 1000*2.0*M_PI/params->freq) / flow_params.G);
+	// Number of iterations
+	iterations = ceil(20.0*params->alpha*params->Re_p / flow_params.G);
+	if(flow_params.f > 1.0e-8)
+		iterations += 100*ceil(2.0*M_PI / params->freq / flow_params.G);
+	else
+		iterations += 20.0*ceil(params->alpha*params->Re_p / flow_params.G);
 
+	printf("f = %f\n", flow_params.f);
 	for(it = 1; it <= iterations; ++it) {
 		// Set reference velocity (used in the boundary conditions)
-		flow_state.u_ref = flow_params.u_max * sin(flow_params.f * it);
+		if(flow_params.f < 1.0e-8)
+			flow_state.u_ref = flow_params.u_max;
+		else
+			flow_state.u_ref = flow_params.u_max * sin(flow_params.f * it);
 
 		// Solve the fsi problem
 		fsi_run(&flow_state, &particle_state);
-
-		// Compute lyapunov exponent
-		/*if(it > lya_start_it) {
-			if( ! lya_particle_state) {
-				lya_particle_state = (LyapunovParticleState *) malloc(sizeof(LyapunovParticleState));
-				lyapunov_init_state(it, lya_particle_state, &particle_state, &flow_state, &lbm_state);
-			} else {
-				lyapunov_run(it, lya_particle_state);
-				//printf("Lyapunov exponent: %f\n", lya_particle_state->lambda);
-				if(lya_particle_state->norm_count >= 100)
-					is_done = 1;
-			}
-		}*/
 
 		// Solve the flow problem
 		lbm_run(&flow_state, &lbm_state);
@@ -108,11 +101,14 @@ void solve(void * args) {
 		if((it % output_params.output_step) == 0)
 			write_output(it, &output_params, &flow_state, &particle_state, lya_particle_state);
 
+		// Check for NaN
+		if(particle_state.ang_vel != particle_state.ang_vel) {
+			fprintf(stderr, "ERROR: Solution has diverged.\n");
+			break;
+		}
+
 		// Swap the f_next and f array in the LbmState struct
 		swap_states(&lbm_state);
-
-		// Update timestep
-		//++it;
 	}
 
 	// Clean up
