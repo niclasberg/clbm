@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <time.h>
 #include "clbm.h" 		/* for lbm_init_state, lbm_destroy_state, lbm_run */
-#include "micro_bc.h" 	/* for microscopic boundary condition definitions */
-#include "macro_bc.h"	/* for microscopic boundary condition definitions */
 #include "fsi.h" 		/* for fsi_init_state, fsi_destroy_state, fsi_run */
 #include "macros.h"		/* for lattice definitions (Q) */
 #include "data_types.h"	/* for solution and parameter structs */
@@ -12,9 +10,10 @@
 #include "output.h" 	/* for write_output */
 #include "workerpool.h"
 #include "lyapunov.h"
+#include "flow.h"
 
-void init_flow(FlowParams *, FlowState *);
-void destroy_flow(FlowState *);
+void flow_init_state(FlowParams *, FlowState *);
+void flow_destroy_state(FlowState *);
 void swap_states(LbmState *);
 void print_info(FlowParams *, FsiParams *);
 void solve(void *);
@@ -34,7 +33,7 @@ int main(int argc, char ** argv)
 	read_input_file(argv[1], &params, &params_count);
 
 	// Queue up jobs
-	workerpool_init(10);
+	workerpool_init(1);
 
 	for(i = 0; i < params_count; ++i)
 		workerpool_push_job(solve, (void *) &params[i]);
@@ -72,19 +71,17 @@ void solve(void * args) {
 
 	// Initialize structs
 	fsi_init_state(&fsi_params, &particle_state);
-	init_flow(&flow_params, &flow_state);
+	flow_init_state(&flow_params, &flow_state);
 	lbm_init_state(&flow_state, &lbm_state);
 
 	// Write initial particle state
 	write_output(0, &output_params, &flow_state, &particle_state, lya_particle_state);
 
 	// Iteration at which Lyapunov exponent calculation should start (t = 10 * St)
-	unsigned int lya_start_it = ceil(50.0 * params->alpha * params->Re_p / flow_params.G);
+	//unsigned int lya_start_it = ceil(50.0 * params->alpha * params->Re_p / flow_params.G);
+	iterations = ceil((20.0*params->alpha*params->Re_p + 1000*2.0*M_PI/params->freq) / flow_params.G);
 
-	//for(it = 1; it <= output_params.timesteps; ++it) {
-	//for(it = 1; it <= iterations; ++it) {
-	it = 1;
-	while( ! is_done) {
+	for(it = 1; it <= iterations; ++it) {
 		// Set reference velocity (used in the boundary conditions)
 		flow_state.u_ref = flow_params.u_max * sin(flow_params.f * it);
 
@@ -92,17 +89,17 @@ void solve(void * args) {
 		fsi_run(&flow_state, &particle_state);
 
 		// Compute lyapunov exponent
-		if(it > lya_start_it) {
+		/*if(it > lya_start_it) {
 			if( ! lya_particle_state) {
 				lya_particle_state = (LyapunovParticleState *) malloc(sizeof(LyapunovParticleState));
-				lyapunov_init_state(it, &particle_state, lya_particle_state);
+				lyapunov_init_state(it, lya_particle_state, &particle_state, &flow_state, &lbm_state);
 			} else {
-				lyapunov_run(it, lya_particle_state, &flow_state);
+				lyapunov_run(it, lya_particle_state);
 				//printf("Lyapunov exponent: %f\n", lya_particle_state->lambda);
-				if(lya_particle_state->norm_count >= 1000000)
+				if(lya_particle_state->norm_count >= 100)
 					is_done = 1;
 			}
-		}
+		}*/
 
 		// Solve the flow problem
 		lbm_run(&flow_state, &lbm_state);
@@ -115,14 +112,14 @@ void solve(void * args) {
 		swap_states(&lbm_state);
 
 		// Update timestep
-		++it;
+		//++it;
 	}
 
 	// Clean up
 	destroy_output(&output_params);
 	fsi_destroy_state(&particle_state);
 	lbm_destroy_state(&lbm_state);
-	destroy_flow(&flow_state);
+	flow_destroy_state(&flow_state);
 
 	if(lya_particle_state) {
 		lyapunov_destroy_state(lya_particle_state);
@@ -143,73 +140,6 @@ void print_info(FlowParams * flow_params, FsiParams * fsi_params)
 	printf("St = %f\n", St);
 	printf("Particle major axis length = %f\n", fsi_params->a);
 	printf("Particle minor axis length = %f\n", fsi_params->b);
-}
-
-void init_flow(FlowParams * f_params, FlowState * f_state)
-{
-	unsigned int i, j, k, nx, ny, idx;
-
-	// Domain dimensions
-	nx = f_params->lx;
-	ny = f_params->ly;
-	f_state->lx = nx;
-	f_state->ly = ny;
-	f_state->G = f_params->G;
-
-	// Physical parameters
-	f_state->u_ref = f_params->u_max;
-	f_state->tau = f_params->tau;
-
-	// Solution arrays
-	f_state->force[0] = (double *) malloc(nx * ny * sizeof(double));
-	f_state->force[1] = (double *) malloc(nx * ny * sizeof(double));
-	f_state->u[0] = (double *) malloc(nx * ny * sizeof(double));
-	f_state->u[1] = (double *) malloc(nx * ny * sizeof(double));
-	f_state->rho = (double *) malloc(nx * ny * sizeof(double));
-
-	// Boundary condition arrays
-	f_state->macro_bc = (int *) malloc(nx * ny * sizeof(int));
-	f_state->micro_bc = (int *) malloc(nx * ny * sizeof(int));
-	f_state->is_corner = (int *) malloc(nx * ny * sizeof(int));
-
-	// Initialize arrays
-	for(i = 0; i < nx; ++i) {
-		for(j=0; j < ny; ++j) {
-			idx = i*ny + j;
-
-			for(k = 0; k < DIM; ++k) {
-				f_state->force[k][idx] = 0;
-				f_state->u[k][idx] = 0;
-			}
-
-			f_state->rho[idx] = f_params->rho;
-			f_state->macro_bc[idx] = 0;
-			f_state->micro_bc[idx] = 0;
-			f_state->is_corner[idx] = 0;
-		}
-	}
-
-	// Set boundary conditions
-	for(i = 0; i < nx; ++i) {
-		f_state->macro_bc[i*ny + ny-1] = bc_north;
-		f_state->macro_bc[i*ny + 0   ] = bc_south;
-
-		f_state->micro_bc[i*ny + ny-1] = bc_regularized_north;
-		f_state->micro_bc[i*ny + 0   ] = bc_regularized_south;
-	}
-}
-
-void destroy_flow(FlowState * f_state)
-{
-	unsigned int k;
-	for(k = 0; k < DIM; ++k) {
-		free(f_state->force[k]);
-		free(f_state->u[k]);
-	}
-	free(f_state->rho);
-	free(f_state->macro_bc);
-	free(f_state->micro_bc);
-	free(f_state->is_corner);
 }
 
 void swap_states(LbmState * lbm_state)

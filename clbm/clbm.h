@@ -3,10 +3,10 @@
 #include "data_types.h"
 
 void lbm_init_state(FlowState *, LbmState *);
+void lbm_copy_state(LbmState *, LbmState *);
 void lbm_run(FlowState *, LbmState *);
 void lbm_destroy_state();
 void lbm_lattice_info();
-void lbm_print_info();
 
 static void collide(FlowState * , LbmState *);
 static void stream(FlowState * , LbmState *);

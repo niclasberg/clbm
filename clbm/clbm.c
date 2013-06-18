@@ -15,6 +15,10 @@ void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 	unsigned int i, j, k, idx;
 	double ux0, uy0, rho0;
 
+	// Domain size
+	lbm_state->lx = f_state->lx;
+	lbm_state->ly = f_state->ly;
+
 	// Allocate space for the distributions
 	for(i = 0; i < Q; ++i) {
 		lbm_state->f[i] = (double *) malloc(f_state->lx* f_state->ly * sizeof(double));
@@ -32,7 +36,31 @@ void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 
 			for(k = 0; k < Q; ++k) {
 				lbm_state->f[k][idx] = feq(k, rho0, ux0, uy0);
+				lbm_state->f_next[k][idx] = lbm_state->f[k][idx];
 			}
+		}
+	}
+}
+
+void lbm_copy_state(LbmState * dest, LbmState * src)
+{
+	unsigned int i, j;
+
+	// Copy domain size
+	dest->lx = src->lx;
+	dest->ly = src->ly;
+
+	// Allocate space for the distributions
+	for(i = 0; i < Q; ++i) {
+		dest->f[i] = (double *) malloc(dest->lx* dest->ly * sizeof(double));
+		dest->f_next[i] = (double *) malloc(dest->lx* dest->ly * sizeof(double));
+	}
+
+	// Copy data
+	for(i = 0; i < Q; ++i) {
+		for(j = 0; j < dest->lx*dest->ly; ++j) {
+			dest->f[i][j] = src->f[i][j];
+			dest->f_next[i][j] = src->f_next[i][j];
 		}
 	}
 }
@@ -57,11 +85,6 @@ void lbm_lattice_info()
 	}
 }
 
-void lbm_print_info()
-{
-	printf("Lbm parameters:\n");
-}
-
 void lbm_run(FlowState * f_state, LbmState * lbm_state)
 {
 	collide(f_state, lbm_state);
@@ -75,10 +98,13 @@ void lbm_run(FlowState * f_state, LbmState * lbm_state)
  */
 void collide(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i, j, k, idx;
-	double omega = 1.0 / f_state->tau, gx0, gy0, ux0, uy0, rho0;
+	unsigned int i;
 
+	#pragma omp for private(i) schedule(static)
 	for(i = 0; i < f_state->lx; ++i) {
+		unsigned int j, k, idx;
+		double omega = 1.0 / f_state->tau, gx0, gy0, ux0, uy0, rho0;
+
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 
@@ -98,8 +124,12 @@ void collide(FlowState * f_state, LbmState * lbm_state)
 
 void stream(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i, j, lx_m, lx_p, ly_m, ly_p, idx;
+	unsigned int i;
+
+	#pragma omp for private(i) schedule(static)
 	for(i = 0; i < f_state->lx; ++i) {
+		unsigned int j, lx_m, lx_p, ly_m, ly_p, idx;
+
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 
@@ -149,17 +179,19 @@ void create_node(Node * node, unsigned int i, unsigned int j, FlowState * f_stat
 
 void hydrovar(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i, j;
+	unsigned int i;
 	//unsigned int corner_count = 0;
 	//Node * node = (Node *) malloc(sizeof(Node));
 	//Node * corners[4];
 
-	Node node;
-
 	// Evaluate the hydrodynamic variables for all nodes
 	// except the corners (they will usually need extrapolation
 	// that depends on the value of the other nodes)
+	#pragma omp for private(i) schedule(static)
 	for(i = 0; i < f_state->lx; ++i) {
+		unsigned int j;
+		Node node;
+
 		for(j = 0; j < f_state->ly; ++j) {
 			create_node(&node, i, j, f_state, lbm_state);
 
@@ -214,10 +246,13 @@ void eval_hydrovar(FlowState * f_state, LbmState * lbm_state, Node * node)
 
 void implement_bcs(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i, j, k, idx;
+	unsigned int i;
 	Node node;
 
+	#pragma omp for private(i) schedule(dynamic)
 	for(i = 0; i < f_state->lx; ++i) {
+		unsigned int j, k, idx;
+
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 

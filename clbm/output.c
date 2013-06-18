@@ -92,9 +92,9 @@ void write_output(unsigned int it, OutputParams * output_params, FlowState * f_s
 	char file_name[256];
 	if(output_params->print_particle_state) {
 		if(lp_state)
-			fprintf(output_params->output_file, "%d\t%.14g\t%.14g\t%.14g\n", it, p_state->angle, p_state->ang_vel, lp_state->lambda);
+			fprintf(output_params->output_file, "%.14g\t%.14g\t%.14g\t%.14g\n", (double)it * f_state->G, p_state->angle, p_state->ang_vel / f_state->G, lp_state->lambda);
 		else
-			fprintf(output_params->output_file, "%d\t%.14g\t%.14g\t%.14g\n", it, p_state->angle, p_state->ang_vel, 0.0);
+			fprintf(output_params->output_file, "%.14g\t%.14g\t%.14g\t%.14g\n", (double)it * f_state->G, p_state->angle, p_state->ang_vel / f_state->G, 0.0);
 		fflush(output_params->output_file);
 	}
 

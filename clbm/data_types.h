@@ -44,6 +44,7 @@ typedef struct {
 } OutputParams;
 
 typedef struct {
+	unsigned int lx, ly;
 	double * f[Q], * f_next[Q];
 } LbmState;
 
@@ -74,8 +75,10 @@ typedef struct {
 } ParticleState;
 
 typedef struct {
-	ParticleState * base_state;
-	ParticleState * perturbed_state;
+	ParticleState * base_particle_state;
+	ParticleState * perturbed_particle_state;
+	FlowState * perturbed_flow_state;
+	LbmState * perturbed_lbm_state;
 	double t0;					// Iteration where the lyapunov calculation started
 	double d0;					// Magnitude of the initial disturbance
 	double norm_tol;			// Square of the tolerance for when a normalization should take place
