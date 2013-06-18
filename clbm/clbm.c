@@ -186,12 +186,12 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 			if(f_state->macro_bc[idx] != 0) {
 				Node node;
 				create_node(&node, i, j, f_state, lbm_state);
-				macro_bc(node, f_state, f_state->macro_bc[idx]);
+				macro_bc(&node, f_state, f_state->macro_bc[idx]);
 
 				// Copy back the state to the global arrays
-				f_state->rho[idx] = node->rho;
-				f_state->u[0][idx] = node->u[0];
-				f_state->u[1][idx] = node->u[1];
+				f_state->rho[idx] = node.rho;
+				f_state->u[0][idx] = node.u[0];
+				f_state->u[1][idx] = node.u[1];
 			} else {
 				f_state->u[0][idx] = 0.0;
 				f_state->u[1][idx] = 0.0;
