@@ -200,6 +200,7 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 					f_state->rho[idx] += lbm_state->f_next[k][idx];
 				}
 
+
 				f_state->u[0][idx] /= f_state->rho[idx];
 				f_state->u[1][idx] /= f_state->rho[idx];
 			}
