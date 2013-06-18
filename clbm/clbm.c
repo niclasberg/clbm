@@ -100,7 +100,7 @@ void collide(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i;
 
-	#pragma omp for private(i) schedule(static)
+	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
 		unsigned int j, k, idx;
 		double omega = 1.0 / f_state->tau, gx0, gy0, ux0, uy0, rho0;
@@ -126,7 +126,7 @@ void stream(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i;
 
-	#pragma omp for private(i) schedule(static)
+	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
 		unsigned int j, lx_m, lx_p, ly_m, ly_p, idx;
 
@@ -187,7 +187,7 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 	// Evaluate the hydrodynamic variables for all nodes
 	// except the corners (they will usually need extrapolation
 	// that depends on the value of the other nodes)
-	#pragma omp for private(i) schedule(static)
+	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
 		unsigned int j;
 		Node node;
@@ -247,11 +247,11 @@ void eval_hydrovar(FlowState * f_state, LbmState * lbm_state, Node * node)
 void implement_bcs(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i;
-	Node node;
 
-	#pragma omp for private(i) schedule(dynamic)
+	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
 		unsigned int j, k, idx;
+		Node node;
 
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
