@@ -213,9 +213,8 @@ void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
 	unsigned int np;
 
 	// Evaluate the torque on the particle
-	double torque = 0.0;
+	p_state->torque = 0.0;
 
-	#pragma omp parallel for reduction(+:torque)
 	for(np = 0; np < p_state->nodes; ++np) {
 		unsigned int i, j, idx, i_min, i_max, j_min, j_max;
 		double dir, dx, dy, up_particle_x, up_particle_y, uf_particle_x, uf_particle_y;
@@ -252,10 +251,8 @@ void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
 		p_state->force_fsi[1][np] = (uf_particle_y - up_particle_y) * p_state->volume[np];
 
 		// Compute the torque addition
-		torque += dx * p_state->force_fsi[1][np] - dy * p_state->force_fsi[0][np];
+		p_state->torque += dx * p_state->force_fsi[1][np] - dy * p_state->force_fsi[0][np];
 	}
-
-	p_state->torque = torque;
 }
 
 double dirac(double dx, double dy)

@@ -100,7 +100,6 @@ void collide(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i;
 
-	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
 		unsigned int j, k, idx;
 		double omega = 1.0 / f_state->tau, gx0, gy0, ux0, uy0, rho0;
@@ -125,11 +124,9 @@ void collide(FlowState * f_state, LbmState * lbm_state)
 void stream(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i;
+	unsigned int j, lx_m, lx_p, ly_m, ly_p, idx;
 
-	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
-		unsigned int j, lx_m, lx_p, ly_m, ly_p, idx;
-
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 
@@ -179,41 +176,38 @@ void create_node(Node * node, unsigned int i, unsigned int j, FlowState * f_stat
 
 void hydrovar(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i;
-	//unsigned int corner_count = 0;
-	//Node * node = (Node *) malloc(sizeof(Node));
-	//Node * corners[4];
+	unsigned int i, j, k, idx;
 
-	// Evaluate the hydrodynamic variables for all nodes
-	// except the corners (they will usually need extrapolation
-	// that depends on the value of the other nodes)
-	#pragma omp for private(i)
+	// Evaluate the hydrodynamic variables
 	for(i = 0; i < f_state->lx; ++i) {
-		unsigned int j;
-		Node node;
-
 		for(j = 0; j < f_state->ly; ++j) {
-			create_node(&node, i, j, f_state, lbm_state);
+			idx = i*f_state->ly + j;
 
-			/*if(f_state->is_corner[i*f_state->ly + j] != 0) {
-				// Save for later treatment
-				corners[corner_count] = node;
-				// And create a new node object to operate on
-				node = (Node *) malloc(sizeof(Node));
-				++corner_count;
-			} else {*/
-				eval_hydrovar(f_state, lbm_state, &node);
-			//}
+			if(f_state->macro_bc[idx] != 0) {
+				Node node;
+				create_node(&node, i, j, f_state, lbm_state);
+				macro_bc(node, f_state, f_state->macro_bc[idx]);
+
+				// Copy back the state to the global arrays
+				f_state->rho[idx] = node->rho;
+				f_state->u[0][idx] = node->u[0];
+				f_state->u[1][idx] = node->u[1];
+			} else {
+				f_state->u[0][idx] = 0.0;
+				f_state->u[1][idx] = 0.0;
+				f_state->rho[idx] = 0.0;
+
+				for(k = 0; k < Q; ++k) {
+					f_state->u[0][idx] += cx[k] * lbm_state->f[k][idx];
+					f_state->u[1][idx] += cy[k] * lbm_state->f[k][idx];
+					f_state->rho[idx] += lbm_state->f[k][idx];
+				}
+
+				f_state->u[0][idx] /= f_state->rho[idx];
+				f_state->u[1][idx] /= f_state->rho[idx];
+			}
 		}
 	}
-
-	/*free(node);
-
-	// Evaluate for the corner nodes
-	for(i = 0; i < corner_count; ++i) {
-		eval_hydrovar(f_state, lbm_state, corners[i]);
-		free(corners[i]);
-	}*/
 }
 
 void eval_hydrovar(FlowState * f_state, LbmState * lbm_state, Node * node)
@@ -247,16 +241,14 @@ void eval_hydrovar(FlowState * f_state, LbmState * lbm_state, Node * node)
 void implement_bcs(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i;
+	unsigned int j, k, idx;
 
-	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
-		unsigned int j, k, idx;
-		Node node;
-
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 
 			if(f_state->micro_bc[idx] != 0) {
+				Node node;
 				create_node(&node, i, j, f_state, lbm_state);
 				micro_bc(&node, f_state->micro_bc[idx]);
 
