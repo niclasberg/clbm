@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
 	read_input_file(argv[1], &params, &params_count);
 
 	// Queue up jobs
-	workerpool_init(10);
+	workerpool_init(12);
 
 	for(i = 0; i < params_count; ++i)
 		workerpool_push_job(solve, (void *) &params[i]);
