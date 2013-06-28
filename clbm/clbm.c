@@ -42,7 +42,7 @@ void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 	}
 }
 
-void lbm_copy_state(LbmState * dest, LbmState * src)
+void lbm_copy_state(LbmState * dest, const LbmState * src)
 {
 	unsigned int i, j;
 
@@ -70,8 +70,12 @@ void lbm_destroy_state(LbmState * lbm_state)
 	unsigned int i;
 	for(i = 0; i < Q; ++i) {
 		free(lbm_state->f[i]);
+		lbm_state->f[i] = NULL;
 		free(lbm_state->f_next[i]);
+		lbm_state->f_next[i] = NULL;
 	}
+	lbm_state->lx = 0;
+	lbm_state->ly = 0;
 }
 
 void lbm_lattice_info()

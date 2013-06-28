@@ -50,6 +50,7 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 	output_params->print_ux = params->print_ux;
 	output_params->print_uy = params->print_uy;
 	output_params->timesteps = params->timesteps;
+	output_params->print_lyapunov = params->print_lyapunov;
 	sprintf(output_params->output_folder, "alpha%dconf%.2fNx%dNy%d/kb%.2f/Re%.2f/f%.2f/angle%.2f",
 			(int)params->alpha, params->conf, params->lx, params->ly, params->kb, params->Re_p, params->freq, params->init_angle);
 }
@@ -104,6 +105,7 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 	params[0].print_ux = 0;
 	params[0].print_uy = 0;
 	params[0].timesteps = 12000000;
+	params[0].print_lyapunov = 0;
 
 	// Read file line by line
 	while(fgets(line, sizeof(line), handle) != NULL) {
@@ -191,6 +193,8 @@ void set_parameter(InputParameters * params, char * key, char * value)
 		params->print_ux = atoi(value);
 	else if(strcmp(key, "print_uy") == 0)
 		params->print_uy = atoi(value);
+	else if(strcmp(key, "print_lyapunov") == 0)
+		params->print_lyapunov = atoi(value);
 	else if(strcmp(key, "timesteps") == 0)
 		params->timesteps = atoi(value);
 	else {

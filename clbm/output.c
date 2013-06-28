@@ -87,7 +87,7 @@ void write_parameters(OutputParams * output_params, InputParameters * input_para
 	fclose(handle);
 }
 
-void write_output(unsigned int it, OutputParams * output_params, FlowState * f_state, ParticleState * p_state, LyapunovParticleState * lp_state)
+void write_output(unsigned int it, OutputParams * output_params, FlowState * f_state, ParticleState * p_state, LyapunovState * lp_state)
 {
 	char file_name[256];
 	if(output_params->print_particle_state) {

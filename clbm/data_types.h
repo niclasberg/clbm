@@ -19,6 +19,7 @@ typedef struct {
 	int print_uy;
 	int print_rho;
 	int print_particle_state;
+	int print_lyapunov;
 } InputParameters;
 
 typedef struct {
@@ -39,6 +40,7 @@ typedef struct {
 	int print_uy;
 	int print_rho;
 	int print_particle_state;
+	int print_lyapunov;
 	char output_folder[256];
 	FILE * output_file;
 } OutputParams;
@@ -75,17 +77,11 @@ typedef struct {
 } ParticleState;
 
 typedef struct {
-	ParticleState * base_particle_state;
-	ParticleState * perturbed_particle_state;
-	FlowState * perturbed_flow_state;
-	LbmState * perturbed_lbm_state;
-	double t0;					// Iteration where the lyapunov calculation started
+	size_t t0;					// Iteration where the lyapunov calculation started
 	double d0;					// Magnitude of the initial disturbance
-	double norm_tol;			// Square of the tolerance for when a normalization should take place
 	double lambda;				// Lyapunov exponent
 	double cum_sum;				// = "lyapunov exponent" * (t - t0)
-	unsigned int norm_count;	// Number of normalization/average cycles performed
-} LyapunovParticleState;
+} LyapunovState;
 
 typedef struct {
 	double f[Q];

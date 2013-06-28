@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-void lyapunov_init_state(unsigned int it, LyapunovParticleState * lp_state, ParticleState * p_state, FlowState * f_state, LbmState * lbm_state)
+void lyapunov_init_state(unsigned int it, LyapunovState * lp_state, ParticleState * p_state, FlowState * f_state, LbmState * lbm_state)
 {
 	// Initial disturbance and tolerance
 	lp_state->d0 = 1.0e-6;
@@ -29,7 +29,7 @@ void lyapunov_init_state(unsigned int it, LyapunovParticleState * lp_state, Part
 	fsi_update_particle_nodes(lp_state->perturbed_particle_state);
 }
 
-void lyapunov_destroy_state(LyapunovParticleState * lp_state)
+void lyapunov_destroy_state(LyapunovState * lp_state)
 {
 	fsi_destroy_state(lp_state->perturbed_particle_state);
 	free(lp_state->perturbed_particle_state);
@@ -39,9 +39,12 @@ void lyapunov_destroy_state(LyapunovParticleState * lp_state)
 	lbm_destroy_state(lp_state->perturbed_lbm_state);
 }
 
-void lyapunov_run(unsigned int it, LyapunovParticleState * lp_state, FlowState * f_state)
+void lyapunov_run(unsigned int it, LyapunovState * lp_state)
 {
 	double d, d_square, alpha_square, alpha;
+
+	fsi_run(lp_state->perturbed_flow_state);
+	lbm_run(lp_state->perturbed_flow_state);
 
 	// Find the distance in phase space between the base and the perturbed state
 	d = sqrt(pow(lp_state->perturbed_particle_state->angle - lp_state->base_particle_state->angle, 2) +
