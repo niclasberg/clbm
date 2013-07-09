@@ -3,31 +3,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "macros.h"
+#include "iohelpers.h"
 
-/*
- * FSI_INIT
- * 	intializes the ParticleState struct from the parameters defined in
- * 	params
- */
-void fsi_init_state(FsiParams * params, ParticleState * p_state) {
+ParticleState * fsi_alloc_state(unsigned int nodes)
+{
 	unsigned int dim_it, k;
-
-	// initial condition
-	p_state->angle = params->init_angle;
-	p_state->ang_vel = params->init_ang_vel;
-
-	// Compute inertia
-	p_state->inertia = params->rho * PI * params->a * params->b *
-						(pow2(params->a) + pow2(params->b)) / 4.0;
-
-	// Copy center point
-	p_state->coord_c[0] = params->coord_c[0];
-	p_state->coord_c[1] = params->coord_c[1];
-
-	p_state->width = params->a;
+	ParticleState * p_state = malloc(sizeof(ParticleState));
 
 	// Allocate space for particle arrays
-	p_state->nodes = params->nodes;
+	p_state->nodes = nodes;
 
 	// Vector quantities
 	for(dim_it = 0; dim_it < DIM; ++dim_it) {
@@ -42,10 +26,47 @@ void fsi_init_state(FsiParams * params, ParticleState * p_state) {
 	// Scalar quantities
 	p_state->volume = (double *) malloc(p_state->nodes * sizeof(double));
 
+	return p_state;
+}
+
+void fsi_free_state(ParticleState * p_state)
+{
+	unsigned int dim_it;
+	for(dim_it = 0; dim_it < DIM; ++dim_it) {
+		free(p_state->force_fsi[dim_it]);
+		free(p_state->coord_p[dim_it]);
+		free(p_state->coord_a[dim_it]);
+	}
+
+	// Scalar quantities
+	free(p_state->volume);
+
+	free(p_state);
+}
+
+/*
+ * FSI_INIT
+ * 	intializes the ParticleState struct from the parameters defined in
+ * 	params
+ */
+void fsi_init_state(FsiParams * params, ParticleState * p_state) {
+	// initial condition
+	p_state->angle = params->init_angle;
+	p_state->ang_vel = params->init_ang_vel;
+
+	// Compute inertia
+	p_state->inertia = params->rho * PI * params->a * params->b *
+						(pow2(params->a) + pow2(params->b)) / 4.0;
+
+	// Copy center point
+	p_state->coord_c[0] = params->coord_c[0];
+	p_state->coord_c[1] = params->coord_c[1];
+
+	p_state->width = params->a;
+
 	generate_particle_initial(params, p_state);
 	generate_particle_volume(p_state);
 	fsi_update_particle_nodes(p_state);
-	//print_particle(p_state);
 }
 
 void generate_particle_initial(FsiParams * params, ParticleState * p_state)
@@ -144,24 +165,16 @@ void fsi_print_info(ParticleState * p_state)
 	printf("Nodes: %d\n", p_state->nodes);
 	printf("Inertia: %f\n", p_state->inertia);
 	printf("Particle length: %f\n", p_state->width);
-	printf("Particle volume (first node): %f\n", p_state->volume[0]);
+	printf("Particle volumes: \n");
+	unsigned int i;
+	for(i = 0; i < p_state->nodes; ++i)
+		printf("%d => %f\n", i, p_state->volume[i]);
 }
 
-void fsi_destroy_state(ParticleState * p_state)
+ParticleState * fsi_clone_state(const ParticleState * src)
 {
-	unsigned int dim_it;
-	for(dim_it = 0; dim_it < DIM; ++dim_it) {
-		free(p_state->force_fsi[dim_it]);
-		free(p_state->coord_p[dim_it]);
-		free(p_state->coord_a[dim_it]);
-	}
+	ParticleState * dest = malloc(sizeof(ParticleState));
 
-	// Scalar quantities
-	free(p_state->volume);
-}
-
-void fsi_copy_state(ParticleState * dest, ParticleState * src)
-{
 	unsigned int dim_it, j;
 
 	// Copy scalar quantities
@@ -199,6 +212,8 @@ void fsi_copy_state(ParticleState * dest, ParticleState * src)
 			dest->coord_a[dim_it][j] = src->coord_a[dim_it][j];
 		}
 	}
+
+	return dest;
 }
 
 void fsi_run(FlowState * f_state, ParticleState * p_state)
@@ -302,4 +317,50 @@ void fsi_project_force_on_fluid(FlowState * f_state, ParticleState * p_state)
 			f_state->force[1][idx] = temp_y;
 		}
 	}
+}
+
+void fsi_write_state_binary(FILE * handle, const ParticleState * particle_state)
+{
+	size_t i;
+
+	write_uint(handle, particle_state->nodes);
+	write_double(handle, particle_state->ang_vel);
+	write_double(handle, particle_state->angle);
+	write_double(handle, particle_state->inertia);
+	write_double(handle, particle_state->torque);
+	write_double(handle, particle_state->width);
+	write_n_doubles(handle, particle_state->coord_c, DIM);
+	write_n_doubles(handle, particle_state->volume, particle_state->nodes);
+
+	for(i = 0; i < DIM; ++i)
+		write_n_doubles(handle, particle_state->force_fsi[i], particle_state->nodes);
+
+	for(i = 0; i < DIM; ++i)
+		write_n_doubles(handle, particle_state->coord_a[i], particle_state->nodes);
+
+	for(i = 0; i < DIM; ++i)
+		write_n_doubles(handle, particle_state->coord_p[i], particle_state->nodes);
+}
+
+void fsi_read_state_binary(FILE * handle, ParticleState * particle_state)
+{
+	size_t i;
+
+	read_uint(handle, &particle_state->nodes);
+	read_double(handle, &particle_state->ang_vel);
+	read_double(handle, &particle_state->angle);
+	read_double(handle, &particle_state->inertia);
+	read_double(handle, &particle_state->torque);
+	read_double(handle, &particle_state->width);
+	read_n_doubles(handle, particle_state->coord_c, DIM);
+	read_n_doubles(handle, particle_state->volume, particle_state->nodes);
+
+	for(i = 0; i < DIM; ++i)
+		read_n_doubles(handle, particle_state->force_fsi[i], particle_state->nodes);
+
+	for(i = 0; i < DIM; ++i)
+		read_n_doubles(handle, particle_state->coord_a[i], particle_state->nodes);
+
+	for(i = 0; i < DIM; ++i)
+		read_n_doubles(handle, particle_state->coord_p[i], particle_state->nodes);
 }

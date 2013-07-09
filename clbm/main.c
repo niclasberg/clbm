@@ -12,7 +12,7 @@
 #include "flow.h"
 
 void flow_init_state(FlowParams *, FlowState *);
-void flow_destroy_state(FlowState *);
+void flow_free_state(FlowState *);
 void swap_states(LbmState *);
 void print_info(FlowParams *, FsiParams *);
 void solve(void *);
@@ -32,9 +32,10 @@ int main(int argc, char ** argv)
 
 	read_input_file(argv[1], &params, &params_count);
 
-	// Queue up jobs
-	workerpool_init(12);
+	// Initialize the worker pool
+	workerpool_init(32);
 
+	// Queue up jobs
 	for(i = 0; i < params_count; ++i)
 		workerpool_push_job(solve, (void *) &params[i]);
 
@@ -43,13 +44,14 @@ int main(int argc, char ** argv)
 
 	// Clean up
 	workerpool_destroy();
+	free(params);
 
 	return 0;
 }
 
 void solve(void * args) {
 	unsigned int it, iterations, lya_start_it;
-	unsigned int lya_step = 100;
+	char checkpoint_file_name[512];
 
 	// Structs for the parameters
 	InputParameters * params = (InputParameters *) args;
@@ -57,10 +59,13 @@ void solve(void * args) {
 	FsiParams fsi_params;
 	OutputParams output_params;
 
-	// State structs for the flow and particle
-	FlowState flow_state;
-	ParticleState particle_state;
-	LbmState lbm_state;
+	// Parse input parameters
+	parse_input(params, &flow_params, &fsi_params, &output_params);
+
+	// Allocate state structs for the flow and particle
+	FlowState * flow_state = flow_alloc_state(flow_params.lx, flow_params.ly);
+	ParticleState * particle_state = fsi_alloc_state(fsi_params.nodes);
+	LbmState * lbm_state = lbm_alloc_state(flow_params.lx, flow_params.ly);
 
 	// State structs for Lyapunov calculation
 	LyapunovState * lya_state = NULL;
@@ -68,37 +73,73 @@ void solve(void * args) {
 	ParticleState * lya_particle_state = NULL;
 	LbmState * lya_lbm_state = NULL;
 
-	// Parse input parameters
-	parse_input(params, &flow_params, &fsi_params, &output_params);
-
 	// Setup output
 	init_output(&output_params);
 
-	// Print parameter file
-	write_parameters(&output_params, params);
+	// Try to initialize the solution from a checkpoint file
+	sprintf(checkpoint_file_name, "%s/checkpoint.dat", output_params.output_folder);
+	FILE * cp_handle = fopen(checkpoint_file_name, "r");
 
-	// Initialize structs
-	fsi_init_state(&fsi_params, &particle_state);
-	flow_init_state(&flow_params, &flow_state);
-	lbm_init_state(&flow_state, &lbm_state);
+	if(cp_handle) {
+		// Checkpoint file existed, read the file and initialize the states
+		int lya_exists;
 
-	// Write initial state
-	write_output(0, &output_params, &flow_state, &particle_state, lya_state);
+		read_uint(cp_handle, &it);
+		fsi_read_state_binary(cp_handle, particle_state);
+		flow_read_state_unformatted(cp_handle, flow_state);
+		lbm_read_state_binary(cp_handle, lbm_state);
+
+		read_uint(cp_handle, &lya_exists);
+		if(lya_exists) {
+			lya_particle_state = fsi_alloc_state(fsi_params.nodes);
+			fsi_read_state_binary(cp_handle, lya_particle_state);
+			lya_flow_state = flow_alloc_state(flow_params.lx, flow_params.ly);
+			flow_read_state_unformatted(cp_handle, lya_flow_state);
+			lya_lbm_state = lbm_alloc_state(flow_params.lx, flow_params.ly);
+			lbm_read_state_binary(cp_handle, lya_lbm_state);
+
+			lya_state = malloc(sizeof(LyapunovState));
+			read_double(cp_handle, &lya_state->d0);
+			read_double(cp_handle, &lya_state->cum_sum);
+			read_double(cp_handle, &lya_state->lambda);
+			read_uint(cp_handle, &lya_state->t0);
+		}
+
+		fclose(cp_handle);
+	} else {
+		// No checkpoint file, initialize normally
+
+		// Print parameter file
+		write_parameters(&output_params, params);
+
+		// Initialize from base state
+		it = 0;
+		fsi_init_state(&fsi_params, particle_state);
+		flow_init_state(&flow_params, flow_state);
+		lbm_init_state(flow_state, lbm_state);
+
+		// Print initial state
+		write_output(0, &output_params, flow_state, particle_state, lya_state);
+	}
 
 	// Number of iterations
 	lya_start_it = ceil(20.0*params->alpha*params->Re_p / flow_params.G);
 	iterations = lya_start_it + ceil(40.0*params->alpha*params->Re_p / flow_params.G);
+	if(iterations > (it + output_params.timesteps))
+		iterations = (it + output_params.timesteps);
 
-	for(it = 1; it <= iterations; ++it) {
+	// Main loop
+	while(it < iterations) {
 		// Advance the solution
-		if( ! solve_step(it, &flow_params, &flow_state, &particle_state, &lbm_state))
+		it += 1;
+		if( ! solve_step(it, &flow_params, flow_state, particle_state, lbm_state))
 			break;
 
 		// Check if the Lyapunov exponent should be calculated
 		if(output_params.print_lyapunov && (it >= lya_start_it)) {
 			double d, alpha;
 
-			// Initialize Lyapunov calculation stuff
+			// Initialize Lyapunov calculation stuff, if not already done
 			if( ! lya_state) {
 				lya_state = malloc(sizeof(LyapunovState));
 				lya_state->d0 = 1.0e-6;
@@ -107,12 +148,9 @@ void solve(void * args) {
 				lya_state->lambda = 0;
 
 				// Copy states
-				lya_lbm_state = malloc(sizeof(LbmState));
-				lbm_copy_state(lya_lbm_state, &lbm_state);
-				lya_flow_state = malloc(sizeof(FlowState));
-				flow_copy_state(lya_flow_state, &flow_state);
-				lya_particle_state = malloc(sizeof(ParticleState));
-				fsi_copy_state(lya_particle_state, &particle_state);
+				lya_lbm_state = lbm_clone_state(lbm_state);
+				lya_flow_state = flow_clone_state(flow_state);
+				lya_particle_state = fsi_clone_state(particle_state);
 
 				// Perturb the particle state
 				lya_particle_state->angle += lya_state->d0;
@@ -122,17 +160,17 @@ void solve(void * args) {
 				if( ! solve_step(it, &flow_params, lya_flow_state, lya_particle_state, lya_lbm_state))
 					break;
 
-				// Normalize and compute lyapunov exponent
-				if(((it - lya_state->t0) % lya_step) == 0) {
+				// Normalize and compute Lyapunov exponent
+				if(((it - lya_state->t0) % output_params.lyapunov_calc_step) == 0) {
 					// Calculate the distance between the original and perturbed orbit
-					double ang_vel = particle_state.ang_vel / flow_params.G;
+					double ang_vel = particle_state->ang_vel / flow_params.G;
 					double lya_ang_vel = lya_particle_state->ang_vel / flow_params.G;
 
-					d = sqrt(pow(lya_particle_state->angle - particle_state.angle, 2) + pow((lya_ang_vel - ang_vel), 2));
+					d = sqrt(pow(lya_particle_state->angle - particle_state->angle, 2) + pow((lya_ang_vel - ang_vel), 2));
 					alpha = d / lya_state->d0;
 
 					// Push the perturbed orbit towards the base orbit
-					lya_particle_state->angle = particle_state.angle + (lya_particle_state->angle - particle_state.angle) / alpha;
+					lya_particle_state->angle = particle_state->angle + (lya_particle_state->angle - particle_state->angle) / alpha;
 					lya_particle_state->ang_vel = flow_params.G * (ang_vel + (lya_ang_vel - ang_vel) / alpha);
 
 					fsi_update_particle_nodes(lya_particle_state);
@@ -146,22 +184,40 @@ void solve(void * args) {
 
 		// Post process the result
 		if((it % output_params.output_step) == 0)
-			write_output(it, &output_params, &flow_state, &particle_state, lya_state);
+			write_output(it, &output_params, flow_state, particle_state, lya_state);
 	}
+
+	// Write a checkpoint file so the simulation can be resumed at later times
+	cp_handle = fopen(checkpoint_file_name, "w");
+	write_uint(cp_handle, it);
+	fsi_write_state_binary(cp_handle, particle_state);
+	flow_write_state_unformatted(cp_handle, flow_state);
+	lbm_write_state_binary(cp_handle, lbm_state);
+	if( ! lya_state) {
+		write_uint(cp_handle, 0);
+	} else {
+		write_uint(cp_handle, 1);
+		fsi_write_state_binary(cp_handle, lya_particle_state);
+		flow_write_state_unformatted(cp_handle, lya_flow_state);
+		lbm_write_state_binary(cp_handle, lya_lbm_state);
+
+		write_double(cp_handle, lya_state->d0);
+		write_double(cp_handle, lya_state->cum_sum);
+		write_double(cp_handle, lya_state->lambda);
+		write_uint(cp_handle, lya_state->t0);
+	}
+	fclose(cp_handle);
 
 	// Clean up
 	destroy_output(&output_params);
-	fsi_destroy_state(&particle_state);
-	lbm_destroy_state(&lbm_state);
-	flow_destroy_state(&flow_state);
+	fsi_free_state(particle_state);
+	lbm_free_state(lbm_state);
+	flow_free_state(flow_state);
 
 	if(lya_state) {
-		fsi_destroy_state(lya_particle_state);
-		free(lya_particle_state);
-		lbm_destroy_state(lya_lbm_state);
-		free(lya_lbm_state);
-		flow_destroy_state(lya_flow_state);
-		free(lya_flow_state);
+		fsi_free_state(lya_particle_state);
+		lbm_free_state(lya_lbm_state);
+		flow_free_state(lya_flow_state);
 		free(lya_state);
 	}
 }
@@ -208,11 +264,13 @@ void swap_states(LbmState * lbm_state)
 void print_info(FlowParams * flow_params, FsiParams * fsi_params)
 {
 	double visc = (1.0/3.0) * (flow_params->tau - 0.5);
-	double Re = flow_params->u_max * (flow_params->ly/2) / visc;
-	double conf = (fsi_params->a / (flow_params->ly/2));
+	double Re = flow_params->u_max * ((flow_params->ly - 1.0)/2.0) / visc;
+	double conf = (fsi_params->a / ((flow_params->ly - 1.0)/2.0));
 	double Re_p = Re * conf * conf;
 	double St = fsi_params->rho / flow_params->rho * Re_p;
 	printf("Domain dimensions = %d x %d\n", flow_params->lx, flow_params->ly);
+	printf("Confinement = %f\n", conf);
+	printf("tau = %f\n", flow_params->tau);
 	printf("Re_d = %f\n", Re);
 	printf("Re_p = %f\n", Re_p);
 	printf("St = %f\n", St);

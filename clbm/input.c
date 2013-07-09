@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <float.h>
 #include "macros.h"
 
 void set_parameter(InputParameters *, char *, char *);
@@ -11,18 +12,27 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 {
 	// Compute resulting parameters
 	// Flow parameters
-	double d = (params->ly - 1.0)/2.0; 					// Channel half-height
-	double G = (double) params->u_max / d;				// Shear rate (LB units)
-	double Re =  params->Re_p / pow(params->conf, 2);		// Channel Reynolds number
-	double visc = params->u_max * d / Re;				// Viscocity
+	double d  = (params->ly - 1.0) / 2.0;				// Channel half-height
+	double Re = params->Re_p / pow(params->conf, 2);	// Channel Reynolds number
 
+	if(params->tau == DBL_MAX) {
+		// Wall velocity set
+		double visc = params->u_max * d / Re;
+		flow_params->u_max = params->u_max;
+		flow_params->tau = params->tau = 3.0*visc + 0.5;
+	} else {
+		// Particle relaxation time set
+		double visc = (params->tau - 0.5) / 3.0;
+		flow_params->u_max = params->u_max = Re * visc / d;
+		flow_params->tau = params->tau;
+	}
+
+	double G = (double) flow_params->u_max / d;			// Shear rate (LB units)
 	flow_params->G = G;
-	flow_params->tau = 3.0*visc + 0.5;
 	flow_params->lx = params->lx;
 	flow_params->ly = params->ly;
 	flow_params->rho = 1;
 	flow_params->f = G * params->freq;
-	flow_params->u_max = params->u_max;
 
 	// Fsi parameters
 	double a = params->conf * d;
@@ -31,8 +41,8 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 	fsi_params->a = a;
 	fsi_params->b = b;
 	fsi_params->rho = flow_params->rho * params->alpha;
-	fsi_params->coord_c[0] = params->lx / 2.0 - 0.5;
-	fsi_params->coord_c[1] = params->ly / 2.0 - 0.5;
+	fsi_params->coord_c[0] = flow_params->lx / 2.0 - 0.5;
+	fsi_params->coord_c[1] = flow_params->ly / 2.0 - 0.5;
 	fsi_params->init_angle = params->init_angle;
 	fsi_params->init_ang_vel = params->init_ang_vel;
 
@@ -51,6 +61,7 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 	output_params->print_uy = params->print_uy;
 	output_params->timesteps = params->timesteps;
 	output_params->print_lyapunov = params->print_lyapunov;
+	output_params->lyapunov_calc_step = params->lyapunov_calc_step;
 	sprintf(output_params->output_folder, "alpha%dconf%.2fNx%dNy%d/kb%.2f/Re%.2f/f%.2f/angle%.2f",
 			(int)params->alpha, params->conf, params->lx, params->ly, params->kb, params->Re_p, params->freq, params->init_angle);
 }
@@ -67,7 +78,9 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
  * 	Re	0.1	0.2
  * 	St	1	2
  * the resulting array will be of length 4, with (Re, St) = {(0.1, 1), (0.1, 2), (0.2, 1), (0.2, 2)}.
- * Default parameter values are provided if needed.
+ * Default parameter values are provided where needed.
+ *
+ * Warning: This method is not thread safe!!!
  */
 void read_input_file(char * file_name, InputParameters ** param_array, size_t * param_count)
 {
@@ -94,6 +107,7 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 	params[0].freq = 0.1;
 	params[0].Re_p = 1;
 	params[0].u_max = 0.01;
+	params[0].tau = DBL_MAX;
 	params[0].lx = 100;
 	params[0].ly = 100;
 	params[0].conf = 0.2;
@@ -104,8 +118,9 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 	params[0].print_rho = 0;
 	params[0].print_ux = 0;
 	params[0].print_uy = 0;
-	params[0].timesteps = 12000000;
+	params[0].timesteps = (unsigned int)-1;
 	params[0].print_lyapunov = 0;
+	params[0].lyapunov_calc_step = 100;
 
 	// Read file line by line
 	while(fgets(line, sizeof(line), handle) != NULL) {
@@ -113,7 +128,7 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 			continue; // Empty line
 
 		if(line[0] == '#')
-			continue;
+			continue; // comment
 
 		// Read key
 		key = strtok(line, search);
@@ -125,7 +140,6 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 		}
 
 		chunk_size = params_size;
-
 		value = strtok(NULL, search);
 
 		while(value != NULL) {
@@ -173,9 +187,13 @@ void set_parameter(InputParameters * params, char * key, char * value)
 		params->alpha = atof(value);
 	else if(strcmp(key, "freq") == 0)
 		params->freq = atof(value);
-	else if(strcmp(key, "umax") == 0)
+	else if(strcmp(key, "umax") == 0) {
 		params->u_max = atof(value);
-	else if(strcmp(key, "lx") == 0)
+		params->tau = DBL_MAX;
+	} else if(strcmp(key, "tau") == 0) {
+		params->tau = atof(value);
+		params->u_max = DBL_MAX;
+	} else if(strcmp(key, "lx") == 0)
 		params->lx = atoi(value);
 	else if(strcmp(key, "ly") == 0)
 		params->ly = atoi(value);
@@ -195,6 +213,8 @@ void set_parameter(InputParameters * params, char * key, char * value)
 		params->print_uy = atoi(value);
 	else if(strcmp(key, "print_lyapunov") == 0)
 		params->print_lyapunov = atoi(value);
+	else if(strcmp(key, "lyapunov_calc_step") == 0)
+		params->lyapunov_calc_step = atoi(value);
 	else if(strcmp(key, "timesteps") == 0)
 		params->timesteps = atoi(value);
 	else {

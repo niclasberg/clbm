@@ -76,7 +76,7 @@ void * do_work(void * arg)
 
 		// Execute the predicate function and free the job node once done
 		current_job->predicate(current_job->arg);
-		printf("*** Workerpool: job completed ***");
+		printf("*** Workerpool: job completed ***\n");
 		free(current_job);
 	}
 

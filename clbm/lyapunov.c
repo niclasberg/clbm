@@ -20,23 +20,23 @@ void lyapunov_init_state(unsigned int it, LyapunovState * lp_state, ParticleStat
 
 	// Copy the state and introduce a small disturbance
 	lp_state->perturbed_flow_state = (FlowState *) malloc(sizeof(FlowState));
-	flow_copy_state(lp_state->perturbed_flow_state, f_state);
+	flow_clone_state(lp_state->perturbed_flow_state, f_state);
 	lp_state->perturbed_lbm_state = (LbmState *) malloc(sizeof(FlowState));
-	lbm_copy_state(lp_state->perturbed_lbm_state, lbm_state);
+	lbm_clone_state(lp_state->perturbed_lbm_state, lbm_state);
 	lp_state->perturbed_particle_state = (ParticleState *) malloc(sizeof(ParticleState));
-	fsi_copy_state(lp_state->perturbed_particle_state, p_state);
+	fsi_clone_state(lp_state->perturbed_particle_state, p_state);
 	lp_state->perturbed_particle_state->angle += lp_state->d0;
 	fsi_update_particle_nodes(lp_state->perturbed_particle_state);
 }
 
 void lyapunov_destroy_state(LyapunovState * lp_state)
 {
-	fsi_destroy_state(lp_state->perturbed_particle_state);
+	fsi_free_state(lp_state->perturbed_particle_state);
 	free(lp_state->perturbed_particle_state);
 	lp_state->base_particle_state = NULL;
-	flow_destroy_state(lp_state->perturbed_flow_state);
+	flow_free_state(lp_state->perturbed_flow_state);
 	free(lp_state->perturbed_flow_state);
-	lbm_destroy_state(lp_state->perturbed_lbm_state);
+	lbm_free_state(lp_state->perturbed_lbm_state);
 }
 
 void lyapunov_run(unsigned int it, LyapunovState * lp_state)

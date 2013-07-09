@@ -12,6 +12,7 @@ typedef struct {
 	double freq;			// Oscillation frequency of the walls
 	double Re_p;			// Particle Reynolds number
 	double u_max;			// Maximal wall velocity amplitude
+	double tau;				// LBM relaxation time
 	unsigned int lx, ly;	// Number of grid points for the flow field discretization
 	unsigned int output_step;
 	unsigned int timesteps;
@@ -20,6 +21,7 @@ typedef struct {
 	int print_rho;
 	int print_particle_state;
 	int print_lyapunov;
+	unsigned int lyapunov_calc_step;
 } InputParameters;
 
 typedef struct {
@@ -41,6 +43,7 @@ typedef struct {
 	int print_rho;
 	int print_particle_state;
 	int print_lyapunov;
+	unsigned int lyapunov_calc_step;
 	char output_folder[256];
 	FILE * output_file;
 } OutputParams;
@@ -77,7 +80,7 @@ typedef struct {
 } ParticleState;
 
 typedef struct {
-	size_t t0;					// Iteration where the lyapunov calculation started
+	unsigned int t0;			// Iteration where the lyapunov calculation started
 	double d0;					// Magnitude of the initial disturbance
 	double lambda;				// Lyapunov exponent
 	double cum_sum;				// = "lyapunov exponent" * (t - t0)

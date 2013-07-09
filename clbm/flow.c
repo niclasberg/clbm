@@ -2,21 +2,14 @@
 #include <stdlib.h>
 #include "micro_bc.h" 	/* for microscopic boundary condition definitions */
 #include "macro_bc.h"	/* for microscopic boundary condition definitions */
+#include "iohelpers.h"
 
-void flow_init_state(FlowParams * f_params, FlowState * f_state)
+FlowState * flow_alloc_state(unsigned int nx, unsigned int ny)
 {
-	unsigned int i, j, k, nx, ny, idx;
+	FlowState * f_state = malloc(sizeof(FlowState));
 
-	// Domain dimensions
-	nx = f_params->lx;
-	ny = f_params->ly;
 	f_state->lx = nx;
 	f_state->ly = ny;
-	f_state->G = f_params->G;
-
-	// Physical parameters
-	f_state->u_ref = f_params->u_max;
-	f_state->tau = f_params->tau;
 
 	// Solution arrays
 	f_state->force[0] = (double *) malloc(nx * ny * sizeof(double));
@@ -29,6 +22,22 @@ void flow_init_state(FlowParams * f_params, FlowState * f_state)
 	f_state->macro_bc = (int *) malloc(nx * ny * sizeof(int));
 	f_state->micro_bc = (int *) malloc(nx * ny * sizeof(int));
 	f_state->is_corner = (int *) malloc(nx * ny * sizeof(int));
+
+	return f_state;
+}
+
+void flow_init_state(FlowParams * f_params, FlowState * f_state)
+{
+	unsigned int i, j, k, nx, ny, idx;
+
+	// Domain dimensions
+	nx = f_params->lx;
+	ny = f_params->ly;
+	f_state->G = f_params->G;
+
+	// Physical parameters
+	f_state->u_ref = f_params->u_max;
+	f_state->tau = f_params->tau;
 
 	// Initialize arrays
 	for(i = 0; i < nx; ++i) {
@@ -57,8 +66,10 @@ void flow_init_state(FlowParams * f_params, FlowState * f_state)
 	}
 }
 
-void flow_copy_state(FlowState * dest, FlowState * src)
+FlowState * flow_clone_state(const FlowState * src)
 {
+	FlowState * dest = malloc(sizeof(FlowState));
+
 	unsigned int i, j, k, nx, ny, idx;
 
 	// Domain dimensions
@@ -96,9 +107,11 @@ void flow_copy_state(FlowState * dest, FlowState * src)
 			dest->u[k][i] = src->u[k][i];
 		}
 	}
+
+	return dest;
 }
 
-void flow_destroy_state(FlowState * f_state)
+void flow_free_state(FlowState * f_state)
 {
 	unsigned int k;
 	for(k = 0; k < DIM; ++k) {
@@ -109,4 +122,54 @@ void flow_destroy_state(FlowState * f_state)
 	free(f_state->macro_bc);
 	free(f_state->micro_bc);
 	free(f_state->is_corner);
+
+	free(f_state);
+}
+
+void flow_read_state_unformatted(FILE * handle, FlowState * flow_state)
+{
+	size_t i;
+
+	read_uint(handle, &flow_state->lx);
+	read_uint(handle, &flow_state->ly);
+	read_double(handle, &flow_state->G);
+	read_double(handle, &flow_state->tau);
+	read_double(handle, &flow_state->u_ref);
+
+	size_t nodes = flow_state->ly * flow_state->lx;
+
+	for(i = 0; i < DIM; ++i)
+		read_n_doubles(handle, flow_state->force[i], nodes);
+
+	read_n_uints(handle, flow_state->is_corner, nodes);
+	read_n_uints(handle, flow_state->macro_bc, nodes);
+	read_n_uints(handle, flow_state->micro_bc, nodes);
+	read_n_doubles(handle, flow_state->rho, nodes);
+
+	for(i = 0; i < DIM; ++i)
+		read_n_doubles(handle, flow_state->u[i], nodes);
+}
+
+void flow_write_state_unformatted(FILE * handle, const FlowState * flow_state)
+{
+	size_t i;
+
+	write_uint(handle, flow_state->lx);
+	write_uint(handle, flow_state->ly);
+	write_double(handle, flow_state->G);
+	write_double(handle, flow_state->tau);
+	write_double(handle, flow_state->u_ref);
+
+	size_t nodes = flow_state->ly * flow_state->lx;
+
+	for(i = 0; i < DIM; ++i)
+		write_n_doubles(handle, flow_state->force[i], nodes);
+
+	write_n_uints(handle, flow_state->is_corner, nodes);
+	write_n_uints(handle, flow_state->macro_bc, nodes);
+	write_n_uints(handle, flow_state->micro_bc, nodes);
+	write_n_doubles(handle, flow_state->rho, nodes);
+
+	for(i = 0; i < DIM; ++i)
+		write_n_doubles(handle, flow_state->u[i], nodes);
 }

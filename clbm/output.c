@@ -37,7 +37,7 @@ void init_output(OutputParams * output_params)
 
 	if(output_params->print_particle_state) {
 		sprintf(filename, "%s/particle.txt", output_params->output_folder);
-		output_params->output_file = fopen(filename, "w");
+		output_params->output_file = fopen(filename, "a+");
 	}
 }
 

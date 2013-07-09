@@ -5,25 +5,55 @@
 #include "lattice.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "iohelpers.h"
+
+// Forward declarations
+void collide(FlowState * , LbmState *);
+void stream(FlowState * , LbmState *);
+void hydrovar(FlowState * , LbmState *);
+void implement_bcs(FlowState * , LbmState *);
 
 /*
  * Public methods
  */
 
+LbmState * lbm_alloc_state(unsigned int lx, unsigned int ly)
+{
+	unsigned int i;
+	LbmState * lbm_state = malloc(sizeof(LbmState));
+
+	// Domain size
+	lbm_state->lx = lx;
+	lbm_state->ly = ly;
+
+	// Allocate space for the distributions
+	for(i = 0; i < Q; ++i) {
+		lbm_state->f[i] = (double *) malloc(lx * ly * sizeof(double));
+		lbm_state->f_next[i] = (double *) malloc(lx * ly * sizeof(double));
+	}
+
+	return lbm_state;
+}
+
+void lbm_free_state(LbmState * lbm_state)
+{
+	unsigned int i;
+	for(i = 0; i < Q; ++i) {
+		free(lbm_state->f[i]);
+		lbm_state->f[i] = NULL;
+		free(lbm_state->f_next[i]);
+		lbm_state->f_next[i] = NULL;
+	}
+	lbm_state->lx = 0;
+	lbm_state->ly = 0;
+
+	free(lbm_state);
+}
+
 void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i, j, k, idx;
 	double ux0, uy0, rho0;
-
-	// Domain size
-	lbm_state->lx = f_state->lx;
-	lbm_state->ly = f_state->ly;
-
-	// Allocate space for the distributions
-	for(i = 0; i < Q; ++i) {
-		lbm_state->f[i] = (double *) malloc(f_state->lx* f_state->ly * sizeof(double));
-		lbm_state->f_next[i] = (double *) malloc(f_state->lx* f_state->ly * sizeof(double));
-	}
 
 	// Initialize the distributions
 	for(i = 0; i < f_state->lx; ++i) {
@@ -42,9 +72,11 @@ void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 	}
 }
 
-void lbm_copy_state(LbmState * dest, const LbmState * src)
+LbmState * lbm_clone_state(const LbmState * src)
 {
 	unsigned int i, j;
+
+	LbmState * dest = malloc(sizeof(LbmState));
 
 	// Copy domain size
 	dest->lx = src->lx;
@@ -63,19 +95,8 @@ void lbm_copy_state(LbmState * dest, const LbmState * src)
 			dest->f_next[i][j] = src->f_next[i][j];
 		}
 	}
-}
 
-void lbm_destroy_state(LbmState * lbm_state)
-{
-	unsigned int i;
-	for(i = 0; i < Q; ++i) {
-		free(lbm_state->f[i]);
-		lbm_state->f[i] = NULL;
-		free(lbm_state->f_next[i]);
-		lbm_state->f_next[i] = NULL;
-	}
-	lbm_state->lx = 0;
-	lbm_state->ly = 0;
+	return dest;
 }
 
 void lbm_lattice_info()
@@ -132,7 +153,7 @@ void stream(FlowState * f_state, LbmState * lbm_state)
 			idx = i*f_state->ly + j;
 
 			// Permute the indices, corresponding to a periodic boundary condition
-			// This also avoids segfaults :)
+			// This also prevents segfaults :)
 			lx_m = i==0 				? f_state->lx-1 : i-1;
 			lx_p = i==(f_state->lx-1) 	? 0 			: i+1;
 			ly_m = j==0 				? f_state->ly-1	: j-1;
@@ -212,34 +233,6 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 	}
 }
 
-void eval_hydrovar(FlowState * f_state, LbmState * lbm_state, Node * node)
-{
-	unsigned int idx, k;
-	idx = node->coord[0]*f_state->ly + node->coord[1];
-
-	if(f_state->macro_bc[idx] != 0) {
-		macro_bc(node, f_state, f_state->macro_bc[idx]);
-	} else {
-		node->u[0] = 0.0;
-		node->u[1] = 0.0;
-		node->rho = 0.0;
-
-		for(k = 0; k < Q; ++k) {
-			node->u[0] += cx[k] * node->f[k];
-			node->u[1] += cy[k] * node->f[k];
-			node->rho += node->f[k];
-		}
-
-		node->u[0] /= node->rho;
-		node->u[1] /= node->rho;
-	}
-
-	// Copy back the state to the global arrays
-	f_state->rho[idx] = node->rho;
-	f_state->u[0][idx] = node->u[0];
-	f_state->u[1][idx] = node->u[1];
-}
-
 void implement_bcs(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i;
@@ -259,4 +252,35 @@ void implement_bcs(FlowState * f_state, LbmState * lbm_state)
 			}
 		}
 	}
+}
+
+void lbm_write_state_binary(FILE * handle, const LbmState * lbm_state)
+{
+	size_t i;
+
+	write_uint(handle, lbm_state->lx);
+	write_uint(handle, lbm_state->ly);
+
+	size_t nodes = lbm_state->lx * lbm_state->ly;
+
+	for(i = 0; i < Q; ++i)
+		write_n_doubles(handle, lbm_state->f[i], nodes);
+
+	for(i = 0; i < Q; ++i)
+		write_n_doubles(handle, lbm_state->f_next[i], nodes);
+}
+
+void lbm_read_state_binary(FILE * handle, LbmState * lbm_state)
+{
+	size_t i;
+
+	read_uint(handle, &lbm_state->lx);
+	read_uint(handle, &lbm_state->ly);
+
+	size_t nodes = lbm_state->lx * lbm_state->ly;
+
+	for(i = 0; i < Q; ++i)
+		read_n_doubles(handle, lbm_state->f[i], nodes);
+	for(i = 0; i < Q; ++i)
+		read_n_doubles(handle, lbm_state->f_next[i], nodes);
 }

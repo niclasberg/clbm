@@ -2,16 +2,14 @@
 #define CLBM_H_
 #include "data_types.h"
 
+LbmState * lbm_alloc_state(unsigned int, unsigned int);
+void lbm_free_state(LbmState *);
 void lbm_init_state(FlowState *, LbmState *);
-void lbm_copy_state(LbmState *, const LbmState *);
+LbmState * lbm_clone_state(const LbmState *);
 void lbm_run(FlowState *, LbmState *);
-void lbm_destroy_state();
 void lbm_lattice_info();
+void lbm_write_state_binary(FILE *, const LbmState *);
+void lbm_read_state_binary(FILE *, LbmState *);
 
-static void collide(FlowState * , LbmState *);
-static void stream(FlowState * , LbmState *);
-static void hydrovar(FlowState * , LbmState *);
-static void eval_hydrovar(FlowState *, LbmState *, Node *);
-static void implement_bcs(FlowState * , LbmState *);
 
 #endif /* CLBM_H_ */
