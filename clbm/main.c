@@ -11,8 +11,6 @@
 #include "workerpool.h"
 #include "flow.h"
 
-void flow_init_state(FlowParams *, FlowState *);
-void flow_free_state(FlowState *);
 void swap_states(LbmState *);
 void print_info(FlowParams *, FsiParams *);
 void solve(void *);
