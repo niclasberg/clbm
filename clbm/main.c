@@ -14,7 +14,7 @@
 void swap_states(LbmState *);
 void print_info(FlowParams *, FsiParams *);
 void solve(void *);
-int solve_step(unsigned int, FlowParams *, FlowState *, ParticleState *, LbmState *);
+int lbm_ebf_step(unsigned int, FlowParams *, FlowState *, ParticleState *, LbmState *);
 
 int main(int argc, char ** argv)
 {
@@ -28,7 +28,7 @@ int main(int argc, char ** argv)
 		exit(-1);
 	}
 
-	read_input_file(argv[1], &params, &params_count);
+	input_read_param_file(argv[1], &params, &params_count);
 
 	// Initialize the worker pool
 	workerpool_init(32);
@@ -58,7 +58,7 @@ void solve(void * args) {
 	OutputParams output_params;
 
 	// Parse input parameters
-	parse_input(params, &flow_params, &fsi_params, &output_params);
+	input_parse_input_params(params, &flow_params, &fsi_params, &output_params);
 
 	// Allocate state structs for the flow and particle
 	FlowState * flow_state = flow_alloc_state(flow_params.lx, flow_params.ly);
@@ -72,7 +72,7 @@ void solve(void * args) {
 	LbmState * lya_lbm_state = NULL;
 
 	// Setup output
-	init_output(&output_params);
+	output_init(&output_params);
 
 	// Try to initialize the solution from a checkpoint file
 	sprintf(checkpoint_file_name, "%s/checkpoint.dat", output_params.output_folder);
@@ -108,7 +108,7 @@ void solve(void * args) {
 		// No checkpoint file, initialize normally
 
 		// Print parameter file
-		write_parameters(&output_params, params);
+		output_write_parameters_to_file(&output_params, params);
 
 		// Initialize from base state
 		it = 0;
@@ -117,7 +117,7 @@ void solve(void * args) {
 		lbm_init_state(flow_state, lbm_state);
 
 		// Print initial state
-		write_output(0, &output_params, flow_state, particle_state, lya_state);
+		output_write_state_to_file(0, &output_params, flow_state, particle_state, lya_state);
 	}
 
 	// Number of iterations
@@ -130,7 +130,7 @@ void solve(void * args) {
 	while(it < iterations) {
 		// Advance the solution
 		it += 1;
-		if( ! solve_step(it, &flow_params, flow_state, particle_state, lbm_state))
+		if( ! lbm_ebf_step(it, &flow_params, flow_state, particle_state, lbm_state))
 			break;
 
 		// Check if the Lyapunov exponent should be calculated
@@ -155,7 +155,7 @@ void solve(void * args) {
 				fsi_update_particle_nodes(lya_particle_state);
 			} else {
 				// Advance the perturbed state
-				if( ! solve_step(it, &flow_params, lya_flow_state, lya_particle_state, lya_lbm_state))
+				if( ! lbm_ebf_step(it, &flow_params, lya_flow_state, lya_particle_state, lya_lbm_state))
 					break;
 
 				// Normalize and compute Lyapunov exponent
@@ -182,7 +182,7 @@ void solve(void * args) {
 
 		// Post process the result
 		if((it % output_params.output_step) == 0)
-			write_output(it, &output_params, flow_state, particle_state, lya_state);
+			output_write_state_to_file(it, &output_params, flow_state, particle_state, lya_state);
 	}
 
 	// Write a checkpoint file so the simulation can be resumed at later times
@@ -207,7 +207,7 @@ void solve(void * args) {
 	fclose(cp_handle);
 
 	// Clean up
-	destroy_output(&output_params);
+	output_destroy(&output_params);
 	fsi_free_state(particle_state);
 	lbm_free_state(lbm_state);
 	flow_free_state(flow_state);
@@ -220,7 +220,7 @@ void solve(void * args) {
 	}
 }
 
-int solve_step(unsigned int it, FlowParams * flow_params, FlowState * flow_state, ParticleState * particle_state, LbmState * lbm_state)
+int lbm_ebf_step(unsigned int it, FlowParams * flow_params, FlowState * flow_state, ParticleState * particle_state, LbmState * lbm_state)
 {
 	// Set reference velocity (used in the boundary conditions)
 	if(flow_params->f < 1.0e-8)

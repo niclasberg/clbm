@@ -10,20 +10,20 @@ ParticleState * fsi_alloc_state(unsigned int nodes)
 	unsigned int dim_it, k;
 	ParticleState * p_state = malloc(sizeof(ParticleState));
 
-	// Allocate space for particle arrays
+	/* Allocate space for particle arrays */
 	p_state->nodes = nodes;
 
-	// Vector quantities
+	/* Vector quantities */
 	for(dim_it = 0; dim_it < DIM; ++dim_it) {
-		// FSI force
+		/* FSI force */
 		p_state->force_fsi[dim_it] = (double *) malloc(p_state->nodes * sizeof(double));
 
-		// Node positions
+		/* Node positions */
 		p_state->coord_p[dim_it] = (double *) malloc(p_state->nodes * sizeof(double));
 		p_state->coord_a[dim_it] = (double *) malloc(p_state->nodes * sizeof(double));
 	}
 
-	// Scalar quantities
+	/* Scalar quantities */
 	p_state->volume = (double *) malloc(p_state->nodes * sizeof(double));
 
 	return p_state;
@@ -38,9 +38,8 @@ void fsi_free_state(ParticleState * p_state)
 		free(p_state->coord_a[dim_it]);
 	}
 
-	// Scalar quantities
+	/* Scalar quantities */
 	free(p_state->volume);
-
 	free(p_state);
 }
 
@@ -50,15 +49,15 @@ void fsi_free_state(ParticleState * p_state)
  * 	params
  */
 void fsi_init_state(FsiParams * params, ParticleState * p_state) {
-	// initial condition
+	/* initial condition */
 	p_state->angle = params->init_angle;
 	p_state->ang_vel = params->init_ang_vel;
 
-	// Compute inertia
+	/* Compute inertia */
 	p_state->inertia = params->rho * PI * params->a * params->b *
 						(pow2(params->a) + pow2(params->b)) / 4.0;
 
-	// Copy center point
+	/* Copy center point */
 	p_state->coord_c[0] = params->coord_c[0];
 	p_state->coord_c[1] = params->coord_c[1];
 
@@ -78,7 +77,7 @@ void generate_particle_initial(FsiParams * params, ParticleState * p_state)
 	a = params->a;
 	b = params->b;
 
-	// Find the optimal spacing
+	/* Find the optimal spacing */
 	apb = a + b;
 	amb = a - b;
 	adiv = amb/apb;
@@ -86,7 +85,7 @@ void generate_particle_initial(FsiParams * params, ParticleState * p_state)
 	circ = PI * apb * (1.0 + sqt/(10.0+sqrt(4.0-sqt)));
 	optimal_spacing = circ / p_state->nodes;
 
-	// Generate node positions
+	/* Generate node positions */
 	p_state->coord_a[0][0] = xt = a;
 	p_state->coord_a[1][0] = yt = 0.0;
 	dFPN = 0.0;
@@ -112,7 +111,7 @@ void generate_particle_initial(FsiParams * params, ParticleState * p_state)
 	}
 }
 
-inline double pow2(double X)
+double pow2(double X)
 {
 	return X*X;
 }
@@ -177,7 +176,7 @@ ParticleState * fsi_clone_state(const ParticleState * src)
 
 	unsigned int dim_it, j;
 
-	// Copy scalar quantities
+	/* Copy scalar quantities */
 	dest->ang_vel = src->ang_vel;
 	dest->angle = src->angle;
 	dest->inertia = src->inertia;
@@ -185,24 +184,24 @@ ParticleState * fsi_clone_state(const ParticleState * src)
 	dest->torque = src->torque;
 	dest->width = src->width;
 
-	// Copy center point coordinate
+	/* Copy center point coordinate */
 	dest->coord_c[0] = src->coord_c[0];
 	dest->coord_c[1] = src->coord_c[1];
 
-	// Allocate space for vector quantites
+	/* Allocate space for vector quantites */
 	for(dim_it = 0; dim_it < DIM; ++dim_it) {
-		// FSI force
+		/* FSI force */
 		dest->force_fsi[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
 
-		// Node positions
+		/* Node positions */
 		dest->coord_p[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
 		dest->coord_a[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
 	}
 
-	// Scalar quantities
+	/* Scalar quantities */
 	dest->volume = (double *) malloc(dest->nodes * sizeof(double));
 
-	// Copy values
+	/* Copy values */
 	for(j = 0; j < dest->nodes; ++j) {
 		dest->volume[j] = src->volume[j];
 
@@ -235,18 +234,18 @@ void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
 	p_state->torque = 0.0;
 
 	for(np = 0; np < p_state->nodes; ++np) {
-		// Find positions relative to the center
+		/* Find positions relative to the center */
 		dx = p_state->coord_p[0][np] - p_state->coord_c[0];
 		dy = p_state->coord_p[1][np] - p_state->coord_c[1];
 
-		// Particle velocity at node np
+		/* Particle velocity at node np */
 		up_particle_x = -dy * p_state->ang_vel;
 		up_particle_y = dx * p_state->ang_vel;
 
-		// Compute the fluid velocity at node np
+		/* Compute the fluid velocity at node np */
 		uf_particle_x = uf_particle_y = 0;
 
-		// Determine indices in which the contributing fluid nodes are contained
+		/* Determine indices in which the contributing fluid nodes are contained */
 		i_min = floor(p_state->coord_p[0][np] - 2);
 		i_max = ceil(p_state->coord_p[0][np] + 2);
 		j_min = floor(p_state->coord_p[1][np] - 2);
@@ -262,11 +261,11 @@ void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
 			}
 		}
 
-		//Evaluate the force on the ellipsoid
+		/* Evaluate the force on the ellipsoid */
 		p_state->force_fsi[0][np] = (uf_particle_x - up_particle_x) * p_state->volume[np];
 		p_state->force_fsi[1][np] = (uf_particle_y - up_particle_y) * p_state->volume[np];
 
-		// Compute the torque addition
+		/* Compute the torque addition */
 		p_state->torque += dx * p_state->force_fsi[1][np] - dy * p_state->force_fsi[0][np];
 	}
 }
@@ -281,11 +280,11 @@ double dirac(double dx, double dy)
 
 void fsi_update_particle(ParticleState * p_state)
 {
-	// Update the particle angle and angular velocity
+	/* Update the particle angle and angular velocity */
 	p_state->ang_vel += p_state->torque / p_state->inertia;
 	p_state->angle += p_state->ang_vel;
 
-	// Update the particle nodes' positions
+	/* Update the particle nodes' positions */
 	fsi_update_particle_nodes(p_state);
 }
 
@@ -294,7 +293,7 @@ void fsi_project_force_on_fluid(FlowState * f_state, ParticleState * p_state)
 	unsigned int i, j, np, idx, i_min, i_max, j_min, j_max;
 	double temp_x, temp_y, dir;
 
-	//Calculate force on fluid
+	/* Calculate force on fluid */
 	i_min = floor(p_state->coord_c[0] - p_state->width - 2);
 	i_max = ceil(p_state->coord_c[0] + p_state->width + 2);
 	j_min = floor(p_state->coord_c[1] - p_state->width - 2);

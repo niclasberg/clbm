@@ -9,37 +9,6 @@ int bc_zou_he_east = 1, bc_zou_he_north = 2, bc_zou_he_west = 3, bc_zou_he_south
 	bc_regularized_east = 9, bc_regularized_north = 10, bc_regularized_west = 11, bc_regularized_south = 12/*,
 	bc_diffusive_east = 13, bc_diffusive_north = 14, bc_diffusive_west = 15, bc_diffusive_south = 16*/;
 
-//int INIT_DIFFUSIVE = 1, INIT_ZOU_HE = 2, INIT_REGULARIZED = 4;
-
-/*unsigned int nx, ny;
-double * f_prev[Q];
-
-void bc_init(int types, LbmState * lbm_state, unsigned int lx, unsigned int ly)
-{
-	unsigned int i, k, idx;
-	if(types & INIT_DIFFUSIVE) {
-		nx = lx;
-		ny = ly;
-		for(k = 0; k < Q; ++k) {
-			f_prev[k] = (double *) malloc(lx*ly*sizeof(double));
-
-			for(i = 0; i < lx*ly; ++i) {
-				f_prev[k][i] = lbm_state->f[k][i];
-			}
-		}
-	}
-}
-
-void bc_destroy()
-{
-	if(f_prev[0]) {
-		unsigned int k;
-		for(k = 0; k < Q; ++k) {
-			free(f_prev[k]);
-		}
-	}
-}*/
-
 void micro_bc(Node * node, unsigned int type)
 {
 	if(type == bc_zou_he_east)
@@ -158,7 +127,7 @@ void zou_he_south_west(Node * node)
  * 	See Jonas Latt: Boundary review for more info.
  */
 
-// Helper function to permute indices
+/* Helper function to permute indices */
 unsigned int perm4(unsigned int i, unsigned int j)
 {
 	if(i <= 4)
@@ -173,16 +142,16 @@ void bc_regularized_straight(double * f, double rho, double u, double v, int dir
 	double fneq[Q];
 	double Pi_xx, Pi_yy, Pi_xy, Q_xx, Q_xy, Q_yy;
 
-	// Compute non-equilibrium part of the distributions
+	/* Compute non-equilibrium part of the distributions */
 	for(k=0; k < Q; ++k)
 		fneq[k] = f[k] - feq(k, rho, u, v);
 
-	// Bounce-back on unknown distributions
+	/* Bounce-back on unknown distributions */
 	fneq[perm4(3, dir)] = fneq[perm4(1, dir)];
 	fneq[perm4(6, dir)] = fneq[perm4(8, dir)];
 	fneq[perm4(7, dir)] = fneq[perm4(5, dir)];
 
-	// Evaluate stress tensor
+	/* Evaluate stress tensor */
 	Pi_xx = Pi_xy = Pi_yy = 0;
 	for(k=0; k < Q; ++k) {
 		Pi_xx += cx[k]*cx[k]*fneq[k];
@@ -190,7 +159,7 @@ void bc_regularized_straight(double * f, double rho, double u, double v, int dir
 		Pi_yy += cy[k]*cy[k]*fneq[k];
 	}
 
-	// Compute resulting distribution functions
+	/* Compute resulting distribution functions */
 	for(k=0; k < Q; ++k) {
 		Q_xx = cx[k]*cx[k] - cs2;
 		Q_xy = cx[k]*cy[k];

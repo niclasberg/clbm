@@ -6,35 +6,33 @@
 #include <float.h>
 #include "macros.h"
 
-void set_parameter(InputParameters *, char *, char *);
-
-void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams * fsi_params, OutputParams * output_params)
+void input_parse_input_params(InputParameters * params, FlowParams * flow_params, FsiParams * fsi_params, OutputParams * output_params)
 {
-	// Compute resulting parameters
-	// Flow parameters
-	double d  = (params->ly - 1.0) / 2.0;				// Channel half-height
-	double Re = params->Re_p / pow(params->conf, 2);	// Channel Reynolds number
+	/* Compute resulting parameters  */
+	/* Flow parameters */
+	double d  = (params->ly - 1.0) / 2.0;				/* Channel half-height */
+	double Re = params->Re_p / pow(params->conf, 2);	/* Channel Reynolds number */
 
 	if(params->tau == DBL_MAX) {
-		// Wall velocity set
+		/* Wall velocity set  */
 		double visc = params->u_max * d / Re;
 		flow_params->u_max = params->u_max;
 		flow_params->tau = params->tau = 3.0*visc + 0.5;
 	} else {
-		// Particle relaxation time set
+		/* Particle relaxation time set */
 		double visc = (params->tau - 0.5) / 3.0;
 		flow_params->u_max = params->u_max = Re * visc / d;
 		flow_params->tau = params->tau;
 	}
 
-	double G = (double) flow_params->u_max / d;			// Shear rate (LB units)
+	double G = (double) flow_params->u_max / d;			/* Shear rate (LB units)  */
 	flow_params->G = G;
 	flow_params->lx = params->lx;
 	flow_params->ly = params->ly;
 	flow_params->rho = 1;
 	flow_params->f = G * params->freq;
 
-	// Fsi parameters
+	/* Fsi parameters */
 	double a = params->conf * d;
 	double b = a * params->kb;
 
@@ -44,16 +42,16 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
 	fsi_params->coord_c[0] = flow_params->lx / 2.0 - 0.5;
 	fsi_params->coord_c[1] = flow_params->ly / 2.0 - 0.5;
 	fsi_params->init_angle = params->init_angle;
-	fsi_params->init_ang_vel = params->init_ang_vel;
+	fsi_params->init_ang_vel = params->init_ang_vel * G;
 
-	// Compute the number of nodes so that the distance between each
-	// node can be of order 1
+	/** Compute the number of nodes so that the distance between each
+	    node can be of order 1 */
 	double h = pow((a - b) / (a + b), 2);
 	double circ = PI * (a + b) *
 			(1.0 + 3.0*h/(10.0 + sqrt(4.0-3.0*h)));
 	fsi_params->nodes = ceil(circ);
 
-	// Output parameters
+	/* Output parameters  */
 	output_params->output_step = params->output_step;
 	output_params->print_particle_state = params->print_particle_state;
 	output_params->print_rho = params->print_rho;
@@ -82,7 +80,7 @@ void parse_input(InputParameters * params, FlowParams * flow_params, FsiParams *
  *
  * Warning: This method is not thread safe!!!
  */
-void read_input_file(char * file_name, InputParameters ** param_array, size_t * param_count)
+void input_read_param_file(char * file_name, InputParameters ** param_array, size_t * param_count)
 {
 	FILE * handle = fopen(file_name, "r");
 	if(handle == NULL) {
@@ -101,49 +99,31 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 	size_t chunk_size;
 	size_t i;
 
-	// Set default parameters for the first parameter set
-	params[0].kb = 0.5;
-	params[0].alpha = 1;
-	params[0].freq = 0.1;
-	params[0].Re_p = 1;
-	params[0].u_max = 0.01;
-	params[0].tau = DBL_MAX;
-	params[0].lx = 100;
-	params[0].ly = 100;
-	params[0].conf = 0.2;
-	params[0].init_angle = 0;
-	params[0].init_ang_vel = 0;
-	params[0].output_step = 400;
-	params[0].print_particle_state = 1;
-	params[0].print_rho = 0;
-	params[0].print_ux = 0;
-	params[0].print_uy = 0;
-	params[0].timesteps = (unsigned int)-1;
-	params[0].print_lyapunov = 0;
-	params[0].lyapunov_calc_step = 100;
+	/* Set default parameters for the first parameter set */
+	input_init_params(&params[0]);
 
-	// Read file line by line
+	/* Read file line by line */
 	while(fgets(line, sizeof(line), handle) != NULL) {
 		if(strlen(line) < 2)
-			continue; // Empty line
+			continue; /* Empty line */
 
 		if(line[0] == '#')
-			continue; // comment
+			continue; /* comment */
 
-		// Read key
+		/* Read key */
 		key = strtok(line, search);
 		value = strtok(NULL, search);
 
-		// Set parameter for all existing parameter sets
+		/* Set parameter for all existing parameter sets */
 		for(i = 0; i < params_size; ++i) {
-			set_parameter(&params[i], key, value);
+			input_set_parameter(&params[i], key, value);
 		}
 
 		chunk_size = params_size;
 		value = strtok(NULL, search);
 
 		while(value != NULL) {
-			// Check if the array is full. In that case, allocate twice as much memory and copy the old contents.
+			/* Check if the array is full. In that case, allocate twice as much memory and copy the old contents. */
 			if((params_size + chunk_size) > params_capacity) {
 				InputParameters * new_params = (InputParameters *) malloc(2 * params_capacity * sizeof(InputParameters));
 				for(i = 0; i < params_size; ++i)
@@ -154,13 +134,16 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 				params_capacity = 2*params_capacity;
 			}
 
-			// Copy the parameter set to the end of the array
+			/* Copy the parameter set to the end of the array */
 			for(i = 0; i < chunk_size; ++i)
 				params[params_size + i] = params[i];
 
-			// Replace the currently considered parameter's value with the one read from the file
+			/* Replace the currently considered parameter's value with the one read from the file */
 			for(i = 0; i < chunk_size; ++i) {
-				set_parameter(&params[params_size + i], key, value);
+				if( ! input_set_parameter(&params[params_size + i], key, value)) {
+					fprintf(stderr, "Input error: Unknown key %s\n", key);
+					exit(-1);
+				}
 			}
 
 			params_size += chunk_size;
@@ -175,7 +158,30 @@ void read_input_file(char * file_name, InputParameters ** param_array, size_t * 
 	*param_count = params_size;
 }
 
-void set_parameter(InputParameters * params, char * key, char * value)
+void input_init_params(InputParameters * params)
+{
+	params->kb = 0.5;
+	params->alpha = 1;
+	params->freq = 0.1;
+	params->Re_p = 1;
+	params->u_max = 0.01;
+	params->tau = DBL_MAX;
+	params->lx = 100;
+	params->ly = 100;
+	params->conf = 0.2;
+	params->init_angle = 0;
+	params->init_ang_vel = 0;
+	params->output_step = 400;
+	params->print_particle_state = 1;
+	params->print_rho = 0;
+	params->print_ux = 0;
+	params->print_uy = 0;
+	params->timesteps = (unsigned int)-1;
+	params->print_lyapunov = 0;
+	params->lyapunov_calc_step = 100;
+}
+
+int input_set_parameter(InputParameters * params, char * key, char * value)
 {
 	if(strcmp(key, "Re_p") == 0)
 		params->Re_p = atof(value);
@@ -217,8 +223,7 @@ void set_parameter(InputParameters * params, char * key, char * value)
 		params->lyapunov_calc_step = atoi(value);
 	else if(strcmp(key, "timesteps") == 0)
 		params->timesteps = atoi(value);
-	else {
-		fprintf(stderr, "Input error: Unknown key %s\n", key);
-		exit(-1);
-	}
+	else
+		return 0;
+	return 1;
 }

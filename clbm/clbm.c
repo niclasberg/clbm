@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "iohelpers.h"
 
-// Forward declarations
+/* Forward declarations */
 void collide(FlowState * , LbmState *);
 void stream(FlowState * , LbmState *);
 void hydrovar(FlowState * , LbmState *);
@@ -22,11 +22,11 @@ LbmState * lbm_alloc_state(unsigned int lx, unsigned int ly)
 	unsigned int i;
 	LbmState * lbm_state = malloc(sizeof(LbmState));
 
-	// Domain size
+	/* Domain size */
 	lbm_state->lx = lx;
 	lbm_state->ly = ly;
 
-	// Allocate space for the distributions
+	/* Allocate space for the distributions */
 	for(i = 0; i < Q; ++i) {
 		lbm_state->f[i] = (double *) malloc(lx * ly * sizeof(double));
 		lbm_state->f_next[i] = (double *) malloc(lx * ly * sizeof(double));
@@ -55,7 +55,7 @@ void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 	unsigned int i, j, k, idx;
 	double ux0, uy0, rho0;
 
-	// Initialize the distributions
+	/* Initialize the distributions */
 	for(i = 0; i < f_state->lx; ++i) {
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
@@ -78,17 +78,17 @@ LbmState * lbm_clone_state(const LbmState * src)
 
 	LbmState * dest = malloc(sizeof(LbmState));
 
-	// Copy domain size
+	/* Copy domain size */
 	dest->lx = src->lx;
 	dest->ly = src->ly;
 
-	// Allocate space for the distributions
+	/* Allocate space for the distributions */
 	for(i = 0; i < Q; ++i) {
 		dest->f[i] = (double *) malloc(dest->lx* dest->ly * sizeof(double));
 		dest->f_next[i] = (double *) malloc(dest->lx* dest->ly * sizeof(double));
 	}
 
-	// Copy data
+	/* Copy data */
 	for(i = 0; i < Q; ++i) {
 		for(j = 0; j < dest->lx*dest->ly; ++j) {
 			dest->f[i][j] = src->f[i][j];
@@ -152,8 +152,8 @@ void stream(FlowState * f_state, LbmState * lbm_state)
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 
-			// Permute the indices, corresponding to a periodic boundary condition
-			// This also prevents segfaults :)
+			/** Permute the indices, corresponding to a periodic boundary condition
+			 	This also prevents segfaults :) */
 			lx_m = i==0 				? f_state->lx-1 : i-1;
 			lx_p = i==(f_state->lx-1) 	? 0 			: i+1;
 			ly_m = j==0 				? f_state->ly-1	: j-1;
@@ -178,20 +178,20 @@ void create_node(Node * node, unsigned int i, unsigned int j, FlowState * f_stat
 
 	idx = i*f_state->ly + j;
 
-	// Copy coordinates
+	/* Copy coordinates */
 	node->coord[0] = i;
 	node->coord[1] = j;
 
-	// Copy density
+	/* Copy density */
 	node->rho = f_state->rho[idx];
 
-	// Copy force and velocity
+	/* Copy force and velocity */
 	for(k = 0; k < DIM; ++k) {
 		node->u[k] = f_state->u[k][idx];
 		node->force[k] = f_state->force[k][idx];
 	}
 
-	// Copy the post-stream distribution functions
+	/* Copy the post-stream distribution functions */
 	for(k = 0; k < Q; ++k)
 		node->f[k] = lbm_state->f_next[k][idx];
 }
@@ -201,7 +201,7 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 	unsigned int i, j, k, idx;
 	Node node;
 
-	// Evaluate the hydrodynamic variables
+	/* Evaluate the hydrodynamic variables */
 	for(i = 0; i < f_state->lx; ++i) {
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
@@ -210,7 +210,7 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 				create_node(&node, i, j, f_state, lbm_state);
 				macro_bc(&node, f_state, f_state->macro_bc[idx]);
 
-				// Copy back the state to the global arrays
+				/* Copy back the state to the global arrays */
 				f_state->rho[idx] = node.rho;
 				f_state->u[0][idx] = node.u[0];
 				f_state->u[1][idx] = node.u[1];

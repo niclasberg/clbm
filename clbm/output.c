@@ -8,9 +8,9 @@ extern int errno;
 
 int do_mkdir(char *, mode_t);
 
-void init_output(OutputParams * output_params)
+void output_init(OutputParams * output_params)
 {
-	// Create output folder structure
+	/* Create output folder structure */
 	char foldercopy[256];
 	strcpy(foldercopy, output_params->output_folder);
 	char * start, * end;
@@ -31,7 +31,7 @@ void init_output(OutputParams * output_params)
 	if(status == 0)
 		do_mkdir(output_params->output_folder, 0777);
 
-	// Create file handle for particle data
+	/* Create file handle for particle data */
 	output_params->output_file = NULL;
 	char filename[256];
 
@@ -57,7 +57,7 @@ int do_mkdir(char * path, mode_t mode)
 	return status;
 }
 
-void destroy_output(OutputParams * output_params)
+void output_destroy(OutputParams * output_params)
 {
 	if(output_params->output_file) {
 		fclose(output_params->output_file);
@@ -65,7 +65,7 @@ void destroy_output(OutputParams * output_params)
 	}
 }
 
-void write_parameters(OutputParams * output_params, InputParameters * input_params)
+void output_write_parameters_to_file(OutputParams * output_params, InputParameters * input_params)
 {
 	char file_name[512];
 	sprintf(file_name, "%s/parameters.txt", output_params->output_folder);
@@ -87,7 +87,7 @@ void write_parameters(OutputParams * output_params, InputParameters * input_para
 	fclose(handle);
 }
 
-void write_output(unsigned int it, OutputParams * output_params, FlowState * f_state, ParticleState * p_state, LyapunovState * lp_state)
+void output_write_state_to_file(unsigned int it, OutputParams * output_params, FlowState * f_state, ParticleState * p_state, LyapunovState * lp_state)
 {
 	char file_name[256];
 	if(output_params->print_particle_state) {
@@ -124,54 +124,5 @@ void write_array_to_new_file(char * file_name, unsigned int lx, unsigned int ly,
 			fprintf(handle, "%d\t%d\t%.14g\n", i, j, arr[i*ly+j]);
 		}
 	}
-	fclose(handle);
-}
-
-void write_checkpoint_file(LbmState * lbm_state, FlowState * flow_state, ParticleState * particle_state, OutputParams * output_params)
-{
-	unsigned int lx, ly;
-	unsigned int i, j, k;
-	char filename[256];
-	FILE * handle;
-
-	sprintf(filename, "%s/checkpoint.txt", output_params->output_folder);
-	handle = fopen(filename, "w");
-
-	lx = flow_state->lx;
-	ly = flow_state->ly;
-
-	// Write time and domain data
-	fprintf(handle, "%d\n", output_params->timesteps);
-	fprintf(handle, "%d\n", lx);
-	fprintf(handle, "%d\n", ly);
-
-	// Write flow data
-	fprintf(handle, "%f\n", flow_state->tau);
-	fprintf(handle, "%f\n", flow_state->u_ref);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%f\n", flow_state->rho[i]);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%f\n", flow_state->u[0][i]);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%f\n", flow_state->u[1][i]);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%d\n", flow_state->macro_bc[i]);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%d\n", flow_state->micro_bc[i]);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%d\n", flow_state->is_corner[i]);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%f\n", flow_state->force[0][i]);
-	for(i = 0; i < lx*ly; ++i)
-		fprintf(handle, "%f\n", flow_state->force[1][i]);
-
-	// Write lbm data
-	for(i = 0; i < lx*ly; ++i)
-		for(j=0; j < Q; ++j)
-			fprintf(handle, "%f\n", lbm_state->f[j][i]);
-
-	// Write particle data
-
-
 	fclose(handle);
 }

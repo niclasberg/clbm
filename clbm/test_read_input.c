@@ -8,7 +8,7 @@ int main(int argc, char ** argv)
 	size_t params_size;
 	size_t i;
 
-	read_input_file("parameters.txt", &params, &params_size);
+	input_read_param_file("parameters.txt", &params, &params_size);
 
 	for(i = 0; i < params_size; ++i) {
 		printf("-----\n");

@@ -3,7 +3,7 @@
 #include "data_types.h"
 #include "macros.h"
 
-// Public methods
+/* Public methods */
 ParticleState * fsi_alloc_state(unsigned int);
 void fsi_free_state(ParticleState *);
 void fsi_init_state(FsiParams *, ParticleState *);
@@ -17,7 +17,7 @@ void fsi_project_force_on_fluid(FlowState *, ParticleState *);
 void fsi_write_state_binary(FILE *, const ParticleState *);
 void fsi_read_state_binary(FILE *, ParticleState *);
 
-// Implementation methods
+/* Implementation methods */
 static void generate_particle_volume(ParticleState *);
 static void generate_particle_initial(FsiParams *, ParticleState *);
 static double dirac(double, double);
