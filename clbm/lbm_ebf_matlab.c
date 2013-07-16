@@ -6,6 +6,8 @@
 #include "data_types.h"
 #include "input.h"
 #include <float.h>
+#include <stdlib.h>
+#include <math.h>
 
 void swap_states(LbmState *);
 void read_matlab_input(InputParameters *, const mxArray *);
@@ -45,28 +47,57 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	flow_init_state(&flow_params, flow_state);
 	lbm_init_state(flow_state, lbm_state);
 
-	flow_state->u_ref = flow_params.u_max;
+	/* Relax for a few iterations */
+	double err, max_err = DBL_MAX;
+	FlowState * flow_state_last = flow_clone_state(flow_state);
+	it = 0;
 
-	/* Relax for a few iterations to generate an initial condition */
-	for(it = 0; it < 300; ++it) {
+	while(max_err > pow(1e-4*flow_state->u_ref, 2)) {
+		unsigned int i, j;
+
+		/* Save old velocity solution */
+		for(i = 0; i < flow_state->lx*flow_state->ly; ++i)
+			for(j = 0; j < DIM; ++j)
+				flow_state_last->u[j][i] = flow_state->u[j][i];
+
+		/* Run the solver, but do not update particle position nor velocity */
 		fsi_compute_force_on_particle(flow_state, particle_state);
 		fsi_project_force_on_fluid(flow_state, particle_state);
 		lbm_run(flow_state, lbm_state);
 		swap_states(lbm_state);
+
+		/* Estimate error */
+		max_err = 0;
+		for(i = 0; i < flow_state->lx*flow_state->ly; ++i) {
+			err = pow(flow_state->u[0][i] - flow_state_last->u[0][i], 2) + pow(flow_state->u[1][i] - flow_state_last->u[1][i], 2);
+			if(err > max_err)
+				max_err = err;
+		}
+		++it;
+	}
+	mexPrintf("Initial condition converged in %d iterations\n", it);
+
+	flow_free_state(flow_state_last);
+
+	/* Export state at first iteration */
+	double * output_ptr = NULL;
+	if(nlhs > 0) {
+		plhs[0] = mxCreateDoubleMatrix(output_params.timesteps+1, 2, mxREAL);
+		output_ptr = mxGetPr(plhs[0]);
+		output_ptr[0] = particle_state->angle;
+		output_ptr[output_params.timesteps] = particle_state->ang_vel / flow_state->G;
 	}
 
 	/* Main loop */
-	for( ; it < output_params.timesteps; ++it) {
+	for(it = 0; it < output_params.timesteps; ++it) {
 		fsi_run(flow_state, particle_state);
 		lbm_run(flow_state, lbm_state);
 		swap_states(lbm_state);
-	}
 
-	if(nlhs > 0) {
-		plhs[0] = mxCreateDoubleMatrix(2, 1, mxREAL);
-		double * ptr_to_data = mxGetPr(plhs[0]);
-		ptr_to_data[0] = particle_state->angle;
-		ptr_to_data[1] = particle_state->ang_vel / flow_state->G;
+		if(output_ptr) {
+			output_ptr[1+it] = particle_state->angle;
+			output_ptr[2+it + output_params.timesteps] = particle_state->ang_vel / flow_state->G;
+		}
 	}
 }
 
@@ -85,6 +116,8 @@ void read_matlab_input(InputParameters * params, const mxArray * minput)
 			params->kb = value;
 		else if(strcmp(key, "iterations") == 0)
 			params->timesteps = value;
+		else if(strcmp(key, "freq") == 0)
+			params->freq = value;
 		else if(strcmp(key, "alpha") == 0)
 			params->alpha = value;
 		else if(strcmp(key, "init_angle") == 0)
