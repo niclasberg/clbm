@@ -10,8 +10,9 @@
 /* Forward declarations */
 void collide(FlowState * , LbmState *);
 void stream(FlowState * , LbmState *);
-void hydrovar(FlowState * , LbmState *);
+void hydrovar_and_bcs(FlowState * , LbmState *);
 void implement_bcs(FlowState * , LbmState *);
+void swap_states(LbmState *);
 
 /*
  * Public methods
@@ -76,17 +77,7 @@ LbmState * lbm_clone_state(const LbmState * src)
 {
 	unsigned int i, j;
 
-	LbmState * dest = malloc(sizeof(LbmState));
-
-	/* Copy domain size */
-	dest->lx = src->lx;
-	dest->ly = src->ly;
-
-	/* Allocate space for the distributions */
-	for(i = 0; i < Q; ++i) {
-		dest->f[i] = (double *) malloc(dest->lx* dest->ly * sizeof(double));
-		dest->f_next[i] = (double *) malloc(dest->lx* dest->ly * sizeof(double));
-	}
+	LbmState * dest = lbm_alloc_state(src->lx, src->ly);
 
 	/* Copy data */
 	for(i = 0; i < Q; ++i) {
@@ -112,10 +103,13 @@ void lbm_lattice_info()
 
 void lbm_run(FlowState * f_state, LbmState * lbm_state)
 {
-	collide(f_state, lbm_state);
-	stream(f_state, lbm_state);
-	hydrovar(f_state, lbm_state);
-	implement_bcs(f_state, lbm_state);
+	#pragma omp parallel
+	{
+		collide(f_state, lbm_state);
+		stream(f_state, lbm_state);
+		hydrovar_and_bcs(f_state, lbm_state);
+	}
+	swap_states(lbm_state);
 }
 
 /*
@@ -123,24 +117,22 @@ void lbm_run(FlowState * f_state, LbmState * lbm_state)
  */
 void collide(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i, j, k, idx;
+	unsigned int i, k;
+	unsigned int nodes = lbm_state->lx * lbm_state->ly;
 	double omega = 1.0 / f_state->tau, gx0, gy0, ux0, uy0, rho0;
 
-	for(i = 0; i < f_state->lx; ++i) {
-		for(j = 0; j < f_state->ly; ++j) {
-			idx = i*f_state->ly + j;
+	#pragma omp for private(i, k, gx0, gy0, ux0, uy0, rho0)
+	for(i = 0; i < nodes; ++i) {
+		gx0 = f_state->force[0][i];
+		gy0 = f_state->force[1][i];
+		rho0 = f_state->rho[i];
+		ux0 = f_state->u[0][i];
+		uy0 = f_state->u[1][i];
 
-			gx0 = f_state->force[0][idx];
-			gy0 = f_state->force[1][idx];
-			rho0 = f_state->rho[idx];
-			ux0 = f_state->u[0][idx];
-			uy0 = f_state->u[1][idx];
-
-			for(k = 0; k < Q; ++k)
-				lbm_state->f[k][idx] = lbm_state->f[k][idx] -
-						omega * (lbm_state->f[k][idx] - feq(k, rho0, ux0, uy0)) +
-						3.0 * weight[k] * (cx[k]*gx0 + cy[k]*gy0);
-		}
+		for(k = 0; k < Q; ++k)
+			lbm_state->f[k][i] = lbm_state->f[k][i] -
+					omega * (lbm_state->f[k][i] - feq(k, rho0, ux0, uy0)) +
+					3.0 * weight[k] * (cx[k]*gx0 + cy[k]*gy0);
 	}
 }
 
@@ -148,6 +140,7 @@ void stream(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i, j, lx_m, lx_p, ly_m, ly_p, idx;
 
+	#pragma omp for private(i, j, lx_m, lx_p, ly_m, ly_p, idx)
 	for(i = 0; i < f_state->lx; ++i) {
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
@@ -159,7 +152,6 @@ void stream(FlowState * f_state, LbmState * lbm_state)
 			ly_m = j==0 				? f_state->ly-1	: j-1;
 			ly_p = j==(f_state->ly-1)	? 0				: j+1;
 
-			lbm_state->f_next[0][idx] = lbm_state->f[0][idx];
 			lbm_state->f_next[1][idx] = lbm_state->f[1][lx_m*f_state->ly + j];
 			lbm_state->f_next[2][idx] = lbm_state->f[2][i*f_state->ly + ly_m];
 			lbm_state->f_next[3][idx] = lbm_state->f[3][lx_p*f_state->ly + j];
@@ -196,17 +188,18 @@ void create_node(Node * node, unsigned int i, unsigned int j, FlowState * f_stat
 		node->f[k] = lbm_state->f_next[k][idx];
 }
 
-void hydrovar(FlowState * f_state, LbmState * lbm_state)
+void hydrovar_and_bcs(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i, j, k, idx;
-	Node node;
 
 	/* Evaluate the hydrodynamic variables */
+	#pragma omp for private(i, j, k, idx)
 	for(i = 0; i < f_state->lx; ++i) {
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
 
 			if(f_state->macro_bc[idx] != 0) {
+				Node node;
 				create_node(&node, i, j, f_state, lbm_state);
 				macro_bc(&node, f_state, f_state->macro_bc[idx]);
 
@@ -225,9 +218,18 @@ void hydrovar(FlowState * f_state, LbmState * lbm_state)
 					f_state->rho[idx] += lbm_state->f_next[k][idx];
 				}
 
-
 				f_state->u[0][idx] /= f_state->rho[idx];
 				f_state->u[1][idx] /= f_state->rho[idx];
+			}
+
+			/* Implement microscopic bcs */
+			if(f_state->micro_bc[idx] != 0) {
+				Node node;
+				create_node(&node, i, j, f_state, lbm_state);
+				micro_bc(&node, f_state->micro_bc[idx]);
+
+				for(k = 0; k < Q; ++k)
+					lbm_state->f_next[k][idx] = node.f[k];
 			}
 		}
 	}
@@ -238,6 +240,7 @@ void implement_bcs(FlowState * f_state, LbmState * lbm_state)
 	unsigned int i;
 	unsigned int j, k, idx;
 
+	#pragma omp for private(i)
 	for(i = 0; i < f_state->lx; ++i) {
 		for(j = 0; j < f_state->ly; ++j) {
 			idx = i*f_state->ly + j;
@@ -252,6 +255,19 @@ void implement_bcs(FlowState * f_state, LbmState * lbm_state)
 			}
 		}
 	}
+}
+
+void swap_states(LbmState * lbm_state)
+{
+	unsigned int k;
+	double * temp[Q];
+	for(k = 0; k < Q; ++k) {
+		temp[k] = lbm_state->f[k];
+		lbm_state->f[k] = lbm_state->f_next[k];
+	}
+
+	for(k = 0; k < Q; ++k)
+		lbm_state->f_next[k] = temp[k];
 }
 
 void lbm_write_state_binary(FILE * handle, const LbmState * lbm_state)
