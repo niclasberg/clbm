@@ -9,13 +9,18 @@
 #include <stdlib.h>
 #include <math.h>
 
+#define STOP_AFTER_ITERATIONS 0
+#define HOMOCLINIC_ORBIT_DETERMINATION 1
+
 void swap_states(LbmState *);
-void read_matlab_input(InputParameters *, const mxArray *);
+void read_matlab_input(InputParameters *, unsigned int *, unsigned int *, const mxArray *);
 void print_params(InputParameters *);
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
 	unsigned int it;
+	unsigned int pre_it;
+	unsigned int mode;
 
 	/* Check input */
 	if(nrhs != 1)
@@ -26,8 +31,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	/* Translate matlab input to a format that the code understands */
 	InputParameters params;
-	read_matlab_input(&params, prhs[0]);
-	/* print_params(&params);*/
+	read_matlab_input(&params, &pre_it, &mode, prhs[0]);
+	/* print_params(&params); */
 
 	/* Structs for the parameters */
 	FlowParams flow_params;
@@ -48,63 +53,70 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	lbm_init_state(flow_state, lbm_state);
 
 	/* Relax for a few iterations */
-	double err, max_err = DBL_MAX;
-	FlowState * flow_state_last = flow_clone_state(flow_state);
-	it = 0;
-
-	while(max_err > pow(1e-4*flow_state->u_ref, 2)) {
-		unsigned int i, j;
-
-		/* Save old velocity solution */
-		for(i = 0; i < flow_state->lx*flow_state->ly; ++i)
-			for(j = 0; j < DIM; ++j)
-				flow_state_last->u[j][i] = flow_state->u[j][i];
-
+	mexPrintf("Generating initial condition, preiterations: %d \n", pre_it);
+	for(it = 0; it < pre_it; ++it) {
 		/* Run the solver, but do not update particle position nor velocity */
-		fsi_compute_force_on_particle(flow_state, particle_state);
-		fsi_project_force_on_fluid(flow_state, particle_state);
+		fsi_run_keep_particle_steady(flow_state, particle_state);
 		lbm_run(flow_state, lbm_state);
-		swap_states(lbm_state);
-
-		/* Estimate error */
-		max_err = 0;
-		for(i = 0; i < flow_state->lx*flow_state->ly; ++i) {
-			err = pow(flow_state->u[0][i] - flow_state_last->u[0][i], 2) + pow(flow_state->u[1][i] - flow_state_last->u[1][i], 2);
-			if(err > max_err)
-				max_err = err;
-		}
-		++it;
 	}
-	mexPrintf("Initial condition converged in %d iterations\n", it);
-
-	flow_free_state(flow_state_last);
 
 	/* Export state at first iteration */
-	double * output_ptr = NULL;
+	double * output_ang_ptr = NULL, * output_ang_vel_ptr = NULL;
+	unsigned int Nt = output_params.timesteps+1;
 	if(nlhs > 0) {
-		plhs[0] = mxCreateDoubleMatrix(output_params.timesteps+1, 2, mxREAL);
-		output_ptr = mxGetPr(plhs[0]);
-		output_ptr[0] = particle_state->angle;
-		output_ptr[output_params.timesteps] = particle_state->ang_vel / flow_state->G;
+		plhs[0] = mxCreateDoubleMatrix(Nt, 1, mxREAL);
+		output_ang_ptr = mxGetPr(plhs[0]);
+		output_ang_ptr[0] = particle_state->angle;
 	}
+
+	if(nlhs > 1) {
+		plhs[1] = mxCreateDoubleMatrix(Nt, 1, mxREAL);
+		output_ang_vel_ptr = mxGetPr(plhs[1]);
+		output_ang_vel_ptr[0] = particle_state->ang_vel / flow_state->G;
+	}
+
 
 	/* Main loop */
-	for(it = 0; it < output_params.timesteps; ++it) {
+	mexPrintf("Entering main loop\n");
+	int is_done = 0;
+	it = 0;
+	while( ! is_done) {
+		/* Termination condition */
+		if(it >= output_params.timesteps)
+			break;
+		else if(mode == HOMOCLINIC_ORBIT_DETERMINATION) {
+			if(particle_state->ang_vel > 0 || fabs(particle_state->angle - fsi_params.init_angle) > PI)
+				break;
+		}
+
+		it += 1;
 		fsi_run(flow_state, particle_state);
 		lbm_run(flow_state, lbm_state);
-		swap_states(lbm_state);
 
-		if(output_ptr) {
-			output_ptr[1+it] = particle_state->angle;
-			output_ptr[2+it + output_params.timesteps] = particle_state->ang_vel / flow_state->G;
-		}
+		if(output_ang_ptr)
+			output_ang_ptr[it] = particle_state->angle;
+		if(output_ang_vel_ptr)
+			output_ang_vel_ptr[it] = particle_state->ang_vel / flow_state->G;
 	}
+
+	if(output_ang_ptr)
+		mxSetM(plhs[0], it+1);
+	if(output_ang_vel_ptr)
+		mxSetM(plhs[1], it+1);
+
+	fsi_free_state(particle_state);
+	flow_free_state(flow_state);
+	lbm_free_state(lbm_state);
+
+	mexPrintf("LBM done\n");
 }
 
-void read_matlab_input(InputParameters * params, const mxArray * minput)
+void read_matlab_input(InputParameters * params, unsigned int * pre_it, unsigned int * mode, const mxArray * minput)
 {
 	unsigned int i, n_params = mxGetNumberOfFields(minput);
 	input_init_params(params);
+	*pre_it = 0;
+	*mode = STOP_AFTER_ITERATIONS;
 
 	for(i = 0; i < n_params; ++i) {
 		const char * key = mxGetFieldNameByNumber(minput, i);
@@ -126,11 +138,20 @@ void read_matlab_input(InputParameters * params, const mxArray * minput)
 			params->init_ang_vel = value;
 		else if(strcmp(key, "umax") == 0)
 			params->u_max = value;
+		else if(strcmp(key, "conf") == 0)
+			params->conf = value;
 		else if(strcmp(key, "lx") == 0)
 			params->lx = value;
 		else if(strcmp(key, "ly") == 0)
 			params->ly = value;
-		else
+		else if(strcmp(key, "pre_it") == 0)
+			*pre_it = value;
+		else if(strcmp(key, "mode") == 0) {
+			if(value == STOP_AFTER_ITERATIONS || value == HOMOCLINIC_ORBIT_DETERMINATION)
+				*mode = value;
+			else
+				mxErrMsgTxt("Unknown mode");
+		} else
 			mexErrMsgTxt("Unknown input parameter");
 	}
 }
@@ -149,17 +170,4 @@ void print_params(InputParameters * params)
 	mexPrintf("tau = %f\n", params->tau);
 	mexPrintf("iterations = %d\n", params->timesteps);
 	mexPrintf("u_max = %f\n", params->u_max);
-}
-
-void swap_states(LbmState * lbm_state)
-{
-	unsigned int k;
-	double * temp[Q];
-	for(k = 0; k < Q; ++k) {
-		temp[k] = lbm_state->f[k];
-		lbm_state->f[k] = lbm_state->f_next[k];
-	}
-
-	for(k = 0; k < Q; ++k)
-		lbm_state->f_next[k] = temp[k];
 }

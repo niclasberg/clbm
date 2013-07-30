@@ -46,13 +46,12 @@ void flow_init_state(FlowParams * f_params, FlowState * f_state)
 
 			for(k = 0; k < DIM; ++k) {
 				f_state->force[k][idx] = 0;
-
-				/* Initialize to a linear distribution if no frequency is set, otherwise to zero */
-				if(f_params->f < 1e-8)
-					f_state->u[k][idx] = f_state->u_ref * (-1.0 + ((double)j / (ny - 1.0)));
-				else
-					f_state->u[k][idx] = 0;
+				f_state->u[k][idx] = 0;
 			}
+
+			/* Initialize to a linear distribution if no frequency is set, otherwise to zero */
+			if(f_params->f < 1e-8)
+				f_state->u[0][idx] = f_state->u_ref * (-1.0 + 2.0*((double)j / (ny - 1.0)));
 
 			f_state->rho[idx] = f_params->rho;
 			f_state->macro_bc[idx] = 0;

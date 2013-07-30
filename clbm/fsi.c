@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include "macros.h"
 #include "iohelpers.h"
+#include <omp.h>
+
+void fsi_accumulate_torque(ParticleState *);
 
 ParticleState * fsi_alloc_state(unsigned int nodes)
 {
@@ -118,7 +121,9 @@ double pow2(double X)
 
 void fsi_update_particle_nodes(ParticleState * p_state)
 {
+	/*printf("Updating particle nodes\n");*/
 	unsigned int i;
+	#pragma omp for
 	for(i = 0; i < p_state->nodes; ++i) {
 		p_state->coord_p[0][i] =
 				p_state->coord_a[0][i] * cos(p_state->angle) -
@@ -217,9 +222,40 @@ ParticleState * fsi_clone_state(const ParticleState * src)
 
 void fsi_run(FlowState * f_state, ParticleState * p_state)
 {
-	fsi_compute_force_on_particle(f_state, p_state);
-	fsi_update_particle(p_state);
-	fsi_project_force_on_fluid(f_state, p_state);
+	#pragma omp parallel
+	{
+		fsi_compute_force_on_particle(f_state, p_state);
+
+		/* Calculate torque */
+		#pragma omp single
+		p_state->torque = 0;
+
+		fsi_accumulate_torque(p_state);
+
+		#pragma omp barrier
+
+		/* Update the particle angle and angular velocity */
+		#pragma omp single
+		{
+			/*printf("Updating particle state\n");*/
+			p_state->ang_vel += p_state->torque / p_state->inertia;
+			p_state->angle += p_state->ang_vel;
+		}
+
+		/* Update the particle nodes' positions */
+		fsi_update_particle_nodes(p_state);
+
+		fsi_project_force_on_fluid(f_state, p_state);
+	}
+}
+
+void fsi_run_keep_particle_steady(FlowState * f_state, ParticleState * p_state)
+{
+	#pragma omp parallel
+	{
+		fsi_compute_force_on_particle(f_state, p_state);
+		fsi_project_force_on_fluid(f_state, p_state);
+	}
 }
 
 /**
@@ -229,18 +265,13 @@ void fsi_run(FlowState * f_state, ParticleState * p_state)
 void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
 {
 	unsigned int np, i, j, idx, i_min, i_max, j_min, j_max;
-	double dir, dx, dy, up_particle_x, up_particle_y, uf_particle_x, uf_particle_y;
+	double dir, up_particle_x, up_particle_y, uf_particle_x, uf_particle_y;
 
-	p_state->torque = 0.0;
-
+	#pragma omp for private(dir, up_particle_x, up_particle_y, uf_particle_x, uf_particle_y, i, j, idx, i_min, i_max, j_min, j_max)
 	for(np = 0; np < p_state->nodes; ++np) {
-		/* Find positions relative to the center */
-		dx = p_state->coord_p[0][np] - p_state->coord_c[0];
-		dy = p_state->coord_p[1][np] - p_state->coord_c[1];
-
 		/* Particle velocity at node np */
-		up_particle_x = -dy * p_state->ang_vel;
-		up_particle_y = dx * p_state->ang_vel;
+		up_particle_x = -(p_state->coord_p[1][np] - p_state->coord_c[1]) * p_state->ang_vel;
+		up_particle_y = (p_state->coord_p[0][np] - p_state->coord_c[0]) * p_state->ang_vel;
 
 		/* Compute the fluid velocity at node np */
 		uf_particle_x = uf_particle_y = 0;
@@ -264,10 +295,8 @@ void fsi_compute_force_on_particle(FlowState * f_state, ParticleState * p_state)
 		/* Evaluate the force on the ellipsoid */
 		p_state->force_fsi[0][np] = (uf_particle_x - up_particle_x) * p_state->volume[np];
 		p_state->force_fsi[1][np] = (uf_particle_y - up_particle_y) * p_state->volume[np];
-
-		/* Compute the torque addition */
-		p_state->torque += dx * p_state->force_fsi[1][np] - dy * p_state->force_fsi[0][np];
 	}
+	/*printf("Force on particle computed\n");*/
 }
 
 double dirac(double dx, double dy)
@@ -278,20 +307,31 @@ double dirac(double dx, double dy)
 		return (1.0/16.0) * (1.0 + cos(PI*dx/2.0)) * (1.0 + cos(PI*dy/2.0));
 }
 
-void fsi_update_particle(ParticleState * p_state)
+void fsi_accumulate_torque(ParticleState * p_state)
 {
-	/* Update the particle angle and angular velocity */
-	p_state->ang_vel += p_state->torque / p_state->inertia;
-	p_state->angle += p_state->ang_vel;
+	unsigned int np;
 
-	/* Update the particle nodes' positions */
-	fsi_update_particle_nodes(p_state);
+	/* Since we are in an orphaned construct, the torque_local variable will be firstprivate */
+	double torque_local = 0;
+
+	#pragma omp for nowait
+	for(np = 0; np < p_state->nodes; ++np) {
+		torque_local += (p_state->coord_p[0][np] - p_state->coord_c[0]) * p_state->force_fsi[1][np] -
+						(p_state->coord_p[1][np] - p_state->coord_c[1]) * p_state->force_fsi[0][np];
+	}
+
+	#pragma omp critical
+	{
+		p_state->torque += torque_local;
+		/*printf("Torque computed\n");*/
+	}
 }
 
 void fsi_project_force_on_fluid(FlowState * f_state, ParticleState * p_state)
 {
+	/*printf("Projecting force on fluid\n");*/
 	unsigned int i, j, np, idx, i_min, i_max, j_min, j_max;
-	double temp_x, temp_y, dir;
+	double dir;
 
 	/* Calculate force on fluid */
 	i_min = floor(p_state->coord_c[0] - p_state->width - 2);
@@ -299,21 +339,19 @@ void fsi_project_force_on_fluid(FlowState * f_state, ParticleState * p_state)
 	j_min = floor(p_state->coord_c[1] - p_state->width - 2);
 	j_max = ceil(p_state->coord_c[1] + p_state->width + 2);
 
+	#pragma omp for private(dir, j, idx, np)
 	for(i = i_min; i <= i_max; ++i) {
 		for(j = j_min; j <= j_max; ++j) {
 			idx = i*f_state->ly + j;
 
-			temp_x = 0;
-			temp_y = 0;
+			f_state->force[0][idx] = 0;
+			f_state->force[1][idx] = 0;
 
 			for(np=0; np < p_state->nodes; ++np) {
 				dir =  dirac(i - p_state->coord_p[0][np], j - p_state->coord_p[1][np]);
-				temp_x -= p_state->force_fsi[0][np] * dir;
-				temp_y -= p_state->force_fsi[1][np] * dir;
+				f_state->force[0][idx] -= p_state->force_fsi[0][np] * dir;
+				f_state->force[1][idx] -= p_state->force_fsi[1][np] * dir;
 			}
-
-			f_state->force[0][idx] = temp_x;
-			f_state->force[1][idx] = temp_y;
 		}
 	}
 }

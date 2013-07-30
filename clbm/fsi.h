@@ -8,6 +8,7 @@ ParticleState * fsi_alloc_state(unsigned int);
 void fsi_free_state(ParticleState *);
 void fsi_init_state(FsiParams *, ParticleState *);
 void fsi_run(FlowState *, ParticleState *);
+void fsi_run_keep_particle_steady(FlowState *, ParticleState *);
 void fsi_print_info(ParticleState *);
 ParticleState * fsi_clone_state(const ParticleState *);
 void fsi_update_particle_nodes(ParticleState *);

@@ -11,7 +11,6 @@
 #include "workerpool.h"
 #include "flow.h"
 
-void swap_states(LbmState *);
 void print_info(FlowParams *, FsiParams *);
 void solve(void *);
 int lbm_ebf_step(unsigned int, FlowParams *, FlowState *, ParticleState *, LbmState *);
@@ -31,7 +30,7 @@ int main(int argc, char ** argv)
 	input_read_param_file(argv[1], &params, &params_count);
 
 	// Initialize the worker pool
-	workerpool_init(32);
+	workerpool_init(1);
 
 	// Queue up jobs
 	for(i = 0; i < params_count; ++i)
@@ -234,9 +233,6 @@ int lbm_ebf_step(unsigned int it, FlowParams * flow_params, FlowState * flow_sta
 	// Solve the flow problem
 	lbm_run(flow_state, lbm_state);
 
-	// Swap the f_next and f array in the LbmState struct
-	swap_states(lbm_state);
-
 	// Check for NaN (this check relies on a feature of the floating point system, i.e. NaN != NaN always)
 	if(particle_state->ang_vel != particle_state->ang_vel) {
 		fprintf(stderr, "ERROR: Solution has diverged.\n");
@@ -244,19 +240,6 @@ int lbm_ebf_step(unsigned int it, FlowParams * flow_params, FlowState * flow_sta
 	}
 
 	return 1;
-}
-
-void swap_states(LbmState * lbm_state)
-{
-	unsigned int k;
-	double * temp[Q];
-	for(k = 0; k < Q; ++k) {
-		temp[k] = lbm_state->f[k];
-		lbm_state->f[k] = lbm_state->f_next[k];
-	}
-
-	for(k = 0; k < Q; ++k)
-		lbm_state->f_next[k] = temp[k];
 }
 
 void print_info(FlowParams * flow_params, FsiParams * fsi_params)

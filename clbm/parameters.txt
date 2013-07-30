@@ -6,17 +6,17 @@ kb	0.33
 alpha	1
 
 #flow parameters
-lx	64	128	256
-ly	64	128	256
+lx	128
+ly	128
 Re_p	1
 umax	0.05
 freq	0.10
 
 #output
-output_step	10
+output_step	1000000
 print_ux	0
 print_uy	0
 print_rho	0
-print_particle	1
-print_lyapunov	1
+print_particle	0
+print_lyapunov	0
 lyapunov_calc_step	100
