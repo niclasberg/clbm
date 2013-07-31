@@ -6,12 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "iohelpers.h"
+#include <math.h>
 
 /* Forward declarations */
 void collide(FlowState * , LbmState *);
 void stream(FlowState * , LbmState *);
 void hydrovar_and_bcs(FlowState * , LbmState *);
-void implement_bcs(FlowState * , LbmState *);
 void swap_states(LbmState *);
 
 /*
@@ -139,36 +139,37 @@ void collide(FlowState * f_state, LbmState * lbm_state)
 void stream(FlowState * f_state, LbmState * lbm_state)
 {
 	unsigned int i, j, lx_m, lx_p, ly_m, ly_p, idx;
+	unsigned int nodes = f_state->lx * f_state->ly;
 
 	#pragma omp for private(i, j, lx_m, lx_p, ly_m, ly_p, idx)
-	for(i = 0; i < f_state->lx; ++i) {
-		for(j = 0; j < f_state->ly; ++j) {
-			idx = i*f_state->ly + j;
+	for(idx = 0; idx < nodes; ++idx) {
+		i = floor(idx / f_state->ly);
+		j = idx - i*f_state->ly;
 
-			/** Permute the indices, corresponding to a periodic boundary condition
-			 	This also prevents segfaults :) */
-			lx_m = i==0 				? f_state->lx-1 : i-1;
-			lx_p = i==(f_state->lx-1) 	? 0 			: i+1;
-			ly_m = j==0 				? f_state->ly-1	: j-1;
-			ly_p = j==(f_state->ly-1)	? 0				: j+1;
+		/** Permute the indices, corresponding to a periodic boundary condition
+			This also prevents segfaults :) */
+		lx_m = i==0 				? f_state->lx-1 : i-1;
+		lx_p = i==(f_state->lx-1) 	? 0 			: i+1;
+		ly_m = j==0 				? f_state->ly-1	: j-1;
+		ly_p = j==(f_state->ly-1)	? 0				: j+1;
 
-			lbm_state->f_next[1][idx] = lbm_state->f[1][lx_m*f_state->ly + j];
-			lbm_state->f_next[2][idx] = lbm_state->f[2][i*f_state->ly + ly_m];
-			lbm_state->f_next[3][idx] = lbm_state->f[3][lx_p*f_state->ly + j];
-			lbm_state->f_next[4][idx] = lbm_state->f[4][i*f_state->ly + ly_p];
-			lbm_state->f_next[5][idx] = lbm_state->f[5][lx_m*f_state->ly + ly_m];
-			lbm_state->f_next[6][idx] = lbm_state->f[6][lx_p*f_state->ly + ly_m];
-			lbm_state->f_next[7][idx] = lbm_state->f[7][lx_p*f_state->ly + ly_p];
-			lbm_state->f_next[8][idx] = lbm_state->f[8][lx_m*f_state->ly + ly_p];
-		}
+		lbm_state->f_next[1][idx] = lbm_state->f[1][lx_m*f_state->ly + j];
+		lbm_state->f_next[2][idx] = lbm_state->f[2][i*f_state->ly + ly_m];
+		lbm_state->f_next[3][idx] = lbm_state->f[3][lx_p*f_state->ly + j];
+		lbm_state->f_next[4][idx] = lbm_state->f[4][i*f_state->ly + ly_p];
+		lbm_state->f_next[5][idx] = lbm_state->f[5][lx_m*f_state->ly + ly_m];
+		lbm_state->f_next[6][idx] = lbm_state->f[6][lx_p*f_state->ly + ly_m];
+		lbm_state->f_next[7][idx] = lbm_state->f[7][lx_p*f_state->ly + ly_p];
+		lbm_state->f_next[8][idx] = lbm_state->f[8][lx_m*f_state->ly + ly_p];
 	}
 }
 
-void create_node(Node * node, unsigned int i, unsigned int j, FlowState * f_state, LbmState * lbm_state)
+void create_node(Node * node, unsigned int idx, FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int k, idx;
+	unsigned int i, j, k;
 
-	idx = i*f_state->ly + j;
+	i = floor(idx / f_state->ly);
+	j = idx - i*f_state->ly;
 
 	/* Copy coordinates */
 	node->coord[0] = i;
@@ -190,69 +191,44 @@ void create_node(Node * node, unsigned int i, unsigned int j, FlowState * f_stat
 
 void hydrovar_and_bcs(FlowState * f_state, LbmState * lbm_state)
 {
-	unsigned int i, j, k, idx;
+	unsigned int k, idx;
+	unsigned int nodes = f_state->lx * f_state->ly;
 
 	/* Evaluate the hydrodynamic variables */
-	#pragma omp for private(i, j, k, idx)
-	for(i = 0; i < f_state->lx; ++i) {
-		for(j = 0; j < f_state->ly; ++j) {
-			idx = i*f_state->ly + j;
+	#pragma omp for private(k, idx)
+	for(idx = 0; idx < nodes; ++idx) {
+		if(f_state->macro_bc[idx] != 0) {
+			Node node;
+			create_node(&node, idx, f_state, lbm_state);
+			macro_bc(&node, f_state, f_state->macro_bc[idx]);
 
-			if(f_state->macro_bc[idx] != 0) {
-				Node node;
-				create_node(&node, i, j, f_state, lbm_state);
-				macro_bc(&node, f_state, f_state->macro_bc[idx]);
+			/* Copy back the state to the global arrays */
+			f_state->rho[idx] = node.rho;
+			f_state->u[0][idx] = node.u[0];
+			f_state->u[1][idx] = node.u[1];
+		} else {
+			f_state->u[0][idx] = 0.0;
+			f_state->u[1][idx] = 0.0;
+			f_state->rho[idx] = 0.0;
 
-				/* Copy back the state to the global arrays */
-				f_state->rho[idx] = node.rho;
-				f_state->u[0][idx] = node.u[0];
-				f_state->u[1][idx] = node.u[1];
-			} else {
-				f_state->u[0][idx] = 0.0;
-				f_state->u[1][idx] = 0.0;
-				f_state->rho[idx] = 0.0;
-
-				for(k = 0; k < Q; ++k) {
-					f_state->u[0][idx] += cx[k] * lbm_state->f_next[k][idx];
-					f_state->u[1][idx] += cy[k] * lbm_state->f_next[k][idx];
-					f_state->rho[idx] += lbm_state->f_next[k][idx];
-				}
-
-				f_state->u[0][idx] /= f_state->rho[idx];
-				f_state->u[1][idx] /= f_state->rho[idx];
+			for(k = 0; k < Q; ++k) {
+				f_state->u[0][idx] += cx[k] * lbm_state->f_next[k][idx];
+				f_state->u[1][idx] += cy[k] * lbm_state->f_next[k][idx];
+				f_state->rho[idx] += lbm_state->f_next[k][idx];
 			}
 
-			/* Implement microscopic bcs */
-			if(f_state->micro_bc[idx] != 0) {
-				Node node;
-				create_node(&node, i, j, f_state, lbm_state);
-				micro_bc(&node, f_state->micro_bc[idx]);
-
-				for(k = 0; k < Q; ++k)
-					lbm_state->f_next[k][idx] = node.f[k];
-			}
+			f_state->u[0][idx] /= f_state->rho[idx];
+			f_state->u[1][idx] /= f_state->rho[idx];
 		}
-	}
-}
 
-void implement_bcs(FlowState * f_state, LbmState * lbm_state)
-{
-	unsigned int i;
-	unsigned int j, k, idx;
+		/* Implement microscopic bcs */
+		if(f_state->micro_bc[idx] != 0) {
+			Node node;
+			create_node(&node, idx, f_state, lbm_state);
+			micro_bc(&node, f_state->micro_bc[idx]);
 
-	#pragma omp for private(i)
-	for(i = 0; i < f_state->lx; ++i) {
-		for(j = 0; j < f_state->ly; ++j) {
-			idx = i*f_state->ly + j;
-
-			if(f_state->micro_bc[idx] != 0) {
-				Node node;
-				create_node(&node, i, j, f_state, lbm_state);
-				micro_bc(&node, f_state->micro_bc[idx]);
-
-				for(k = 0; k < Q; ++k)
-					lbm_state->f_next[k][idx] = node.f[k];
-			}
+			for(k = 0; k < Q; ++k)
+				lbm_state->f_next[k][idx] = node.f[k];
 		}
 	}
 }

@@ -47,7 +47,7 @@ int main(int argc, char ** argv)
 }
 
 void solve(void * args) {
-	unsigned int it, iterations, lya_start_it;
+	unsigned int it, iterations;
 	char checkpoint_file_name[512];
 
 	// Structs for the parameters
@@ -120,10 +120,7 @@ void solve(void * args) {
 	}
 
 	// Number of iterations
-	lya_start_it = ceil(20.0*params->alpha*params->Re_p / flow_params.G);
-	iterations = lya_start_it + ceil(40.0*params->alpha*params->Re_p / flow_params.G);
-	if(iterations > (it + output_params.timesteps))
-		iterations = (it + output_params.timesteps);
+	it = it + output_params.timesteps;
 
 	// Main loop
 	while(it < iterations) {
@@ -133,7 +130,7 @@ void solve(void * args) {
 			break;
 
 		// Check if the Lyapunov exponent should be calculated
-		if(output_params.print_lyapunov && (it >= lya_start_it)) {
+		if(output_params.print_lyapunov) {
 			double d, alpha;
 
 			// Initialize Lyapunov calculation stuff, if not already done
