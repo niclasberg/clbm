@@ -120,7 +120,7 @@ void solve(void * args) {
 	}
 
 	// Number of iterations
-	it = it + output_params.timesteps;
+	iterations = it + output_params.timesteps;
 
 	// Main loop
 	while(it < iterations) {
