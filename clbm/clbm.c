@@ -75,19 +75,21 @@ void lbm_init_state(FlowState * f_state, LbmState * lbm_state)
 
 LbmState * lbm_clone_state(const LbmState * src)
 {
-	unsigned int i, j;
-
 	LbmState * dest = lbm_alloc_state(src->lx, src->ly);
+	lbm_copy_state(src, dest);
+	return dest;
+}
 
-	/* Copy data */
-	for(i = 0; i < Q; ++i) {
-		for(j = 0; j < dest->lx*dest->ly; ++j) {
+void lbm_copy_state(const LbmState * src, LbmState * dest)
+{
+	unsigned int i, j;
+	#pragma omp for private(i)
+	for(j = 0; j < dest->lx*dest->ly; ++j) {
+		for(i = 0; i < Q; ++i) {
 			dest->f[i][j] = src->f[i][j];
 			dest->f_next[i][j] = src->f_next[i][j];
 		}
 	}
-
-	return dest;
 }
 
 void lbm_lattice_info()

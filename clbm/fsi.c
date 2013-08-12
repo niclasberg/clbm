@@ -177,15 +177,19 @@ void fsi_print_info(ParticleState * p_state)
 
 ParticleState * fsi_clone_state(const ParticleState * src)
 {
-	ParticleState * dest = malloc(sizeof(ParticleState));
+	ParticleState * dest = fsi_alloc_state(src->nodes);
+	fsi_copy_state(src, dest);
+	return dest;
+}
 
+void fsi_copy_state(const ParticleState * src, ParticleState * dest)
+{
 	unsigned int dim_it, j;
 
 	/* Copy scalar quantities */
 	dest->ang_vel = src->ang_vel;
 	dest->angle = src->angle;
 	dest->inertia = src->inertia;
-	dest->nodes = src->nodes;
 	dest->torque = src->torque;
 	dest->width = src->width;
 
@@ -193,20 +197,8 @@ ParticleState * fsi_clone_state(const ParticleState * src)
 	dest->coord_c[0] = src->coord_c[0];
 	dest->coord_c[1] = src->coord_c[1];
 
-	/* Allocate space for vector quantites */
-	for(dim_it = 0; dim_it < DIM; ++dim_it) {
-		/* FSI force */
-		dest->force_fsi[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
-
-		/* Node positions */
-		dest->coord_p[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
-		dest->coord_a[dim_it] = (double *) malloc(dest->nodes * sizeof(double));
-	}
-
-	/* Scalar quantities */
-	dest->volume = (double *) malloc(dest->nodes * sizeof(double));
-
 	/* Copy values */
+	#pragma omp for
 	for(j = 0; j < dest->nodes; ++j) {
 		dest->volume[j] = src->volume[j];
 
@@ -216,8 +208,6 @@ ParticleState * fsi_clone_state(const ParticleState * src)
 			dest->coord_a[dim_it][j] = src->coord_a[dim_it][j];
 		}
 	}
-
-	return dest;
 }
 
 void fsi_run(FlowState * f_state, ParticleState * p_state)

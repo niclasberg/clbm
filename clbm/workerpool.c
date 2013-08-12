@@ -70,13 +70,13 @@ void * do_work(void * arg)
 			break;
 		}
 
-		printf("*** Workerpool: job started, %d jobs remaining in queue. ***\n", (int)remaining_jobs);
+		/*printf("*** Workerpool: job started, %d jobs remaining in queue. ***\n", (int)remaining_jobs);*/
 
 		pthread_mutex_unlock(&job_mutex);
 
 		// Execute the predicate function and free the job node once done
 		current_job->predicate(current_job->arg);
-		printf("*** Workerpool: job completed ***\n");
+		/*printf("*** Workerpool: job completed ***\n");*/
 		free(current_job);
 	}
 
@@ -85,7 +85,7 @@ void * do_work(void * arg)
 
 void workerpool_run()
 {
-	printf("*** Workerpool: execution of jobs started ***\n");
+	/*printf("*** Workerpool: execution of jobs started ***\n");*/
 
 	size_t i;
 	int rc;

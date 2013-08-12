@@ -59,7 +59,8 @@ void input_parse_input_params(InputParameters * params, FlowParams * flow_params
 	output_params->print_uy = params->print_uy;
 	output_params->timesteps = params->timesteps;
 	output_params->print_lyapunov = params->print_lyapunov;
-	output_params->lyapunov_calc_step = params->lyapunov_calc_step;
+	/*output_params->lyapunov_calc_step = params->lyapunov_calc_step;*/
+	output_params->lyapunov_calc_step = round(2*PI / flow_params->f);
 	sprintf(output_params->output_folder, "alpha%dconf%.2fNx%dNy%d/kb%.2f/Re%.2f/f%.2f/angle%.2f",
 			(int)params->alpha, params->conf, params->lx, params->ly, params->kb, params->Re_p, params->freq, params->init_angle);
 }
@@ -87,7 +88,7 @@ void input_read_param_file(char * file_name, InputParameters ** param_array, siz
 		fprintf(stderr, "Could not open file %s!\n", file_name);
 		exit(-1);
 	}
-	printf("Reading input from %s\n", file_name);
+	/*printf("Reading input from %s\n", file_name);*/
 
 	char line[256];
 	char * key, * value;

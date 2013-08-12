@@ -11,6 +11,7 @@ void fsi_run(FlowState *, ParticleState *);
 void fsi_run_keep_particle_steady(FlowState *, ParticleState *);
 void fsi_print_info(ParticleState *);
 ParticleState * fsi_clone_state(const ParticleState *);
+void fsi_copy_state(const ParticleState *, ParticleState *);
 void fsi_update_particle_nodes(ParticleState *);
 void fsi_compute_force_on_particle(FlowState *, ParticleState *);
 void fsi_update_particle(ParticleState *);

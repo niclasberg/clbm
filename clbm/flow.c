@@ -72,34 +72,28 @@ void flow_init_state(FlowParams * f_params, FlowState * f_state)
 
 FlowState * flow_clone_state(const FlowState * src)
 {
-	FlowState * dest = malloc(sizeof(FlowState));
+	FlowState * dest = flow_alloc_state(src->lx, src->ly);
+	flow_copy_state(src, dest);
+	return dest;
+}
 
+/*
+ * Note: The src and dest states must have the same dimensions
+ */
+void flow_copy_state(const FlowState * src, FlowState * dest)
+{
 	unsigned int i, j, k, nx, ny, idx;
 
-	/* Domain dimensions */
 	nx = src->lx;
 	ny = src->ly;
-	dest->lx = nx;
-	dest->ly = ny;
-	dest->G = src->G;
 
 	/* Physical parameters */
+	dest->G = src->G;
 	dest->u_ref = src->u_ref;
 	dest->tau = src->tau;
 
-	/* Solution arrays */
-	dest->force[0] = (double *) malloc(nx * ny * sizeof(double));
-	dest->force[1] = (double *) malloc(nx * ny * sizeof(double));
-	dest->u[0] = (double *) malloc(nx * ny * sizeof(double));
-	dest->u[1] = (double *) malloc(nx * ny * sizeof(double));
-	dest->rho = (double *) malloc(nx * ny * sizeof(double));
-
-	/* Boundary condition arrays */
-	dest->macro_bc = (int *) malloc(nx * ny * sizeof(int));
-	dest->micro_bc = (int *) malloc(nx * ny * sizeof(int));
-	dest->is_corner = (int *) malloc(nx * ny * sizeof(int));
-
 	/* Copy data */
+	#pragma omp for
 	for(i = 0; i < nx*ny; ++i) {
 		dest->macro_bc[i] = src->macro_bc[i];
 		dest->micro_bc[i] = src->micro_bc[i];
@@ -111,8 +105,6 @@ FlowState * flow_clone_state(const FlowState * src)
 			dest->u[k][i] = src->u[k][i];
 		}
 	}
-
-	return dest;
 }
 
 void flow_free_state(FlowState * f_state)

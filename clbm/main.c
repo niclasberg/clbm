@@ -136,7 +136,7 @@ void solve(void * args) {
 			// Initialize Lyapunov calculation stuff, if not already done
 			if( ! lya_state) {
 				lya_state = malloc(sizeof(LyapunovState));
-				lya_state->d0 = 1.0e-6;
+				lya_state->d0 = 1.0e-4;
 				lya_state->cum_sum = 0;
 				lya_state->t0 = it;
 				lya_state->lambda = 0;
@@ -149,29 +149,46 @@ void solve(void * args) {
 				// Perturb the particle state
 				lya_particle_state->angle += lya_state->d0;
 				fsi_update_particle_nodes(lya_particle_state);
+
 			} else {
 				// Advance the perturbed state
 				if( ! lbm_ebf_step(it, &flow_params, lya_flow_state, lya_particle_state, lya_lbm_state))
 					break;
 
-				// Normalize and compute Lyapunov exponent
-				if(((it - lya_state->t0) % output_params.lyapunov_calc_step) == 0) {
-					// Calculate the distance between the original and perturbed orbit
-					double ang_vel = particle_state->ang_vel / flow_params.G;
-					double lya_ang_vel = lya_particle_state->ang_vel / flow_params.G;
+				// Calculate the distance between the original and perturbed orbit
+				double ang_vel = particle_state->ang_vel / flow_params.G;
+				double lya_ang_vel = lya_particle_state->ang_vel / flow_params.G;
 
-					d = sqrt(pow(lya_particle_state->angle - particle_state->angle, 2) + pow((lya_ang_vel - ang_vel), 2));
-					alpha = d / lya_state->d0;
+				d = pow(lya_particle_state->angle - particle_state->angle, 2) + pow((lya_ang_vel - ang_vel), 2);
+				alpha = sqrt(d / pow(lya_state->d0, 2));
 
+				//printf("%.18g %.18g\n", (it - lya_state->t0)*flow_params.f / (2*PI), alpha);
+
+				if(((it - lya_state->t0) % output_params.lyapunov_calc_step) == 0 && it != lya_state->t0) {
 					// Push the perturbed orbit towards the base orbit
 					lya_particle_state->angle = particle_state->angle + (lya_particle_state->angle - particle_state->angle) / alpha;
 					lya_particle_state->ang_vel = flow_params.G * (ang_vel + (lya_ang_vel - ang_vel) / alpha);
 
-					fsi_update_particle_nodes(lya_particle_state);
+					// Update particle node positions and reset the flow and lbm state to that of the base state
+					unsigned int i;
+					#pragma omp parallel
+					{
+						fsi_update_particle_nodes(lya_particle_state);
+						#pragma omp for
+						for(i = 0; i < lya_flow_state->lx*lya_flow_state->ly; ++i) {
+							lya_flow_state->u[0][i] = flow_params.u_max * ((flow_state->u[0][i]/flow_params.u_max) +
+														((lya_flow_state->u[0][i]/flow_params.u_max) - (flow_state->u[0][i]/flow_params.u_max)) / alpha);
+							lya_flow_state->u[1][i] = flow_params.u_max * ((flow_state->u[1][i]/flow_params.u_max) +
+														((lya_flow_state->u[1][i]/flow_params.u_max) - (flow_state->u[1][i]/flow_params.u_max)) / alpha);
+							lya_flow_state->rho[i] = flow_state->rho[i] + (lya_flow_state->rho[i] - flow_state->rho[i]) / alpha;
+						}
+						lbm_init_state(lya_flow_state, lya_lbm_state);
+					}
 
 					// Update the lyapunov exponent
 					lya_state->cum_sum += log(alpha);
 					lya_state->lambda = lya_state->cum_sum / (lya_flow_state->G*(it - lya_state->t0));
+					printf("%d %.12g\n", it-lya_state->t0, lya_state->lambda);
 				}
 			}
 		}
